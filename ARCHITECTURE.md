@@ -1,6 +1,6 @@
 # Project Commuter Architecture
 
-Project Commuter follows a **Swarm-based Orchestration** pattern with a robust **State Machine** at its core. This document breaks down the v2.1 architecture designed for high-fidelity automation and undetectable browser interaction.
+Project Commuter follows a **Swarm-based Orchestration** pattern with a robust **State Machine** at its core.
 
 ## 🏗 System Overview
 
@@ -15,52 +15,34 @@ graph TD
     Orchestrator --> Ops[Ops Squad]
     
     Vision --> SoM["Set-of-Mark (Visual Tagging)"]
-    SoM --> Gemini["Gemini 3 Flash (Vision)"]
-    Scout --> Groq["Groq (LLM)"]
+    Vision --> Gemini["Gemini 2.5 Flash (Vision)"]
+    Scout --> Groq["Groq (Llama 3.3 70B)"]
     Brain --> ChromaDB["ChromaDB (Vector Store)"]
     Brain --> Groq
     
     Ops --> User
-
 ```
 
-## 🐜 The 1-Agent-1-Tool Swarm
+## 🐜 Agent Squads
 
-### 1. Scout Squad (Discovery)
+### 1. Scout Squad
+- **JobSearchAgent**: Generates search URLs.
+- **ListingParserAgent**: Extracts structured data from listing pages.
 
-* **JobSearchAgent**: Constructs search URLs based on intent.
-* **ListingParserAgent**: Parses HTML chunks into structured JSON using Groq.
+### 2. Vision Squad
+- **VisionAgent**: Analyzes screenshots with **Set-of-Mark (SoM)** ID tags to identify interactive elements.
+- **NavigationAgent**: Executes clicks, typing, and scrolling based on vision decisions.
 
-### 2. Vision Squad (Interaction)
+### 3. Brain Squad
+- **MemoryAgent**: Searches historical answers in ChromaDB.
+- **ContextAgent**: Performs RAG against CV/GitHub context.
+- **DecisionAgent**: Merges memory and context to provide final form inputs.
 
-* **VisionAgent**: The "Eyes." Uses **Set-of-Mark (SoM)** visual tagging to label elements before analysis by Gemini Flash. Returns SoM IDs.
-* **NavigationAgent**: The "Hands." Decides actions (click/type) based on SoM IDs, eliminating CSS selector brittleness.
+### 4. Ops Squad
+- **SOSAgent**: Triggers intervention state for CAPTHCAs or unknown questions.
+- **LiaisonAgent**: Interfaces with the Streamlit dashboard for real-time human feedback.
 
-### 3. Brain Squad (Context Engine)
-
-This is the core semantic layer.
-
-* **MemoryAgent**: Semantic search against previous answers using **ChromaDB**.
-* **ContextAgent**: Performs RAG against the user's CV and GitHub summary stored in the vector store.
-* **DecisionAgent**: The final arbiter. Compares Memory and Context results to decide the final input or trigger SOS.
-
-### 4. Ops Squad (Fail-Safe)
-
-* **SOSAgent**: Triggers mobile alerts when human intervention is required.
-* **LiaisonAgent**: Interfaces with the Streamlit dashboard for user overrides.
-
-## 🧠 State Machine Orchestrator
-
-The `main.py` orchestrator implements a formal state machine:
-
-* **SCOUTING**: Finding new jobs.
-* **NAVIGATING**: Moving to the application page.
-* **APPLYING**: The core loop using SoM Vision and the Brain Squad.
-* **SOS**: Paused state waiting for user input.
-* **IDLE**: Scheduled downtime to simulate human sleep cycles.
-
-## 🕵️ Stealth Protocols
-
-* **Dynamic Fingerprinting**: Mirrors the host machine's platform, OS, and Python versions in the User-Agent.
-* **Advanced Masking**: Spoofs WebGL vendor/renderer and AudioContext fingerprints to blend in with standard Windows/Chrome profiles.
-* **Playwright-Stealth**: Core patches to avoid basic bot detection.
+## 🧪 Stealth & Reliability
+- **Profile Cloning**: Isolates the main Chrome profile into a temporary instance to avoid Singleton locks.
+- **Biometric Simulation**: Randomized typing patterns and mouse "flight" curves.
+- **Error Recovery**: Automatic retries and human-in-the-loop fallback.
