@@ -1,0 +1,10 @@
+﻿# Environment
+.env
+
+# Database
+data/*.db
+
+# Temp
+latest_view.png
+__pycache__/
+*.pyc
