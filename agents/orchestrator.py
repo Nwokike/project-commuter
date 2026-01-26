@@ -1,5 +1,4 @@
 from google.adk.agents import Agent
-from google.adk.types import RunContext
 
 from modules.llm_bridge import GroqModel
 
@@ -14,22 +13,44 @@ orchestrator_model = GroqModel(model_name="groq/llama-3.3-70b-versatile").get_mo
 
 # --- Orchestrator Tools (Delegation) ---
 
-def dispatch_to_scout(context: RunContext, search_query: str) -> str:
+def dispatch_to_scout(context, search_query: str) -> str:
     """
     Delegates the task of finding new jobs to the Scout Squad.
     """
     print(f"[Orchestrator] 📡 Dispatching to Scout with query: {search_query}")
-    # In a full implementation, you'd run the sub-agent here.
-    return "Scout Agent has been scheduled. (Mock Response for Phase 2)"
+    # Run the scout agent to generate search URL and find jobs
+    # This might require a chain of agents in a real scenario, 
+    # but for now we call the main entry point for searching.
+    result = job_search_agent.run(search_query)
+    return f"Scout Agent completed: {result}"
 
-def dispatch_to_navigator(context: RunContext, job_url: str) -> str:
+def dispatch_to_navigator(context, job_url: str) -> str:
     """
     Delegates the task of applying to a specific job to the Navigator/Vision Squad.
     """
     print(f"[Orchestrator] 🧭 Dispatching to Navigator for: {job_url}")
-    return "Navigator Agent started application process. (Mock Response for Phase 2)"
+    # Navigate to the job URL first
+    async def _navigate():
+        if not browser_instance.page:
+            await browser_instance.launch()
+        await browser_instance.page.goto(job_url)
+        await asyncio.sleep(2) # Wait for page load
+    
+    import asyncio
+    from modules.stealth_browser import browser_instance
+    
+    loop = asyncio.get_event_loop()
+    if loop.is_running():
+        asyncio.ensure_future(_navigate())
+    else:
+        loop.run_until_complete(_navigate())
 
-def check_status(context: RunContext) -> str:
+    # Now run the navigation agent loop (usually this would be managed by a higher-level loop)
+    # For now, we trigger the agent once to start the process.
+    result = navigation_agent.run(f"Start applying to {job_url}")
+    return f"Navigator Agent dispatched: {result}"
+
+def check_status(context) -> str:
     """
     Checks the system state (time, pending jobs).
     """

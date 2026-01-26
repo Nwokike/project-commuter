@@ -5,7 +5,7 @@ import shutil
 import time
 import json
 from playwright.async_api import async_playwright, Page, BrowserContext
-from playwright_stealth import stealth_async
+from playwright_stealth import Stealth
 
 # Standard Windows Chrome User Data path
 # NOTE: Adjust for Mac/Linux if needed or make dynamic
@@ -26,35 +26,64 @@ class StealthBrowser:
         """
         print(f"[StealthBrowser] 🧬 Cloning Chrome Profile to {TEMP_PROFILE_DIR}...")
         
-        # We only copy the 'Default' profile or specific necessary folders to save time/space
-        # A full copy might be too slow. For now, we try to launch with the real one
-        # BUT if that fails, we fallback to a clean profile or a clone.
+        # Files needed for cookies and login state
+        files_to_copy = [
+            "Cookies",
+            "Login Data",
+            "Preferences",
+            "Web Data",
+            "Local State"
+        ]
         
-        # For this implementation, we will actually use the REAL profile but strictly handle
-        # the closing/locking. 
-        # Alternatively, a robust method is to copy 'Cookies', 'Preferences', and 'Login Data'.
+        # Chrome profiles are often in 'Default' or 'Profile X'
+        # We'll try to find 'Default' first
+        source_profile = os.path.join(DEFAULT_USER_DATA_DIR, "Default")
+        if not os.path.exists(source_profile):
+            source_profile = DEFAULT_USER_DATA_DIR # Fallback to root or user should specify
+            
+        target_profile = os.path.join(TEMP_PROFILE_DIR, "Default")
+        os.makedirs(target_profile, exist_ok=True)
         
-        if os.path.exists(TEMP_PROFILE_DIR):
-             try:
-                 shutil.rmtree(TEMP_PROFILE_DIR)
-             except Exception as e:
-                 print(f"[StealthBrowser] Warning: Could not clean temp dir: {e}")
+        # Copy Local State to the root of temp dir
+        local_state_src = os.path.join(DEFAULT_USER_DATA_DIR, "Local State")
+        if os.path.exists(local_state_src):
+            try:
+                shutil.copy2(local_state_src, os.path.join(TEMP_PROFILE_DIR, "Local State"))
+            except Exception as e:
+                print(f"[StealthBrowser] Warning: Could not copy Local State: {e}")
 
-        # Simple Copy Strategy (Can be optimized)
-        try:
-             # Just create the dir, Playwright will populate it if it's empty
-             # To truly clone cookies, we'd need to copy specific SQLite files.
-             # For Phase 4, let's stick to using the REAL profile but with a warning,
-             # OR use a blank profile and require the user to login once.
-             pass
-        except Exception as e:
-             pass
+        for f in files_to_copy:
+            src = os.path.join(source_profile, f)
+            dst = os.path.join(target_profile, f)
+            
+            if os.path.exists(src):
+                try:
+                    # Use copy2 to preserve metadata
+                    shutil.copy2(src, dst)
+                    print(f"[StealthBrowser] Copied {f}")
+                except Exception as e:
+                    print(f"[StealthBrowser] Warning: Could not copy {f}: {e}")
+                    # If it's locked, we might still be able to run but without cookies
+            else:
+                # Some files might be in subfolders like 'Network' in newer Chrome versions
+                network_src = os.path.join(source_profile, "Network", f)
+                network_dst = os.path.join(target_profile, "Network")
+                if os.path.exists(network_src):
+                    os.makedirs(network_dst, exist_ok=True)
+                    try:
+                        shutil.copy2(network_src, os.path.join(network_dst, f))
+                        print(f"[StealthBrowser] Copied {f} from Network folder")
+                    except Exception as e:
+                        print(f"[StealthBrowser] Warning: Could not copy {f} from Network: {e}")
 
     async def launch(self):
         """
         Launches Chrome with persistent context.
         """
         self.playwright = await async_playwright().start()
+        
+        # Clone profile before launch
+        self._clone_profile()
         
         # Dynamic UA Generation (Simplified)
         chrome_v = "132.0.0.0" # Modern 2026 version
@@ -67,14 +96,12 @@ class StealthBrowser:
             "--disable-features=IsolateOrigins,site-per-process",
         ]
 
-        print(f"[StealthBrowser] 🚀 Launching Browser (Headless: {self.headless})...")
+        print(f"[StealthBrowser] 🚀 Launching Browser from {TEMP_PROFILE_DIR}...")
         
         try:
-            # We use the real user data dir. 
-            # CRITICAL: User must close Chrome for this to work perfectly without cloning.
-            # If cloning is desired, change user_data_dir to TEMP_PROFILE_DIR and implement _clone_profile
+            # Use the cloned profile
             self.browser_context = await self.playwright.chromium.launch_persistent_context(
-                user_data_dir=DEFAULT_USER_DATA_DIR,
+                user_data_dir=TEMP_PROFILE_DIR,
                 channel="chrome",
                 headless=self.headless,
                 args=args,
@@ -86,7 +113,7 @@ class StealthBrowser:
             self.page = self.browser_context.pages[0] if self.browser_context.pages else await self.browser_context.new_page()
             
             # Apply Stealth
-            await stealth_async(self.page)
+            await Stealth().apply_stealth_async(self.page)
             
             # Hardware Concurrency Spoofing
             await self.page.evaluate("Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8})")
@@ -94,12 +121,12 @@ class StealthBrowser:
             return self.page
 
         except Exception as e:
-            print(f"[StealthBrowser] 💥 CRITICAL: Could not launch. Is Chrome open? {e}")
+            print(f"[StealthBrowser] 💥 CRITICAL: Could not launch. {e}")
             raise e
 
     async def human_type(self, selector, text):
         """
-        Biometric Typing: Varies speed based on key distance (simulated).
+        Biometric Typing: Varies speed based on key distance and adds occasional mistakes.
         """
         # Focus element
         try:
@@ -110,19 +137,34 @@ class StealthBrowser:
             
         print(f"[StealthBrowser] ⌨️ Typing: '{text}' into {selector}")
         
-        for char in text:
+        chars = list(text)
+        i = 0
+        while i < len(chars):
+            char = chars[i]
+            
+            # Occasional mistake (1% chance)
+            if random.random() < 0.01 and char.isalpha():
+                wrong_char = random.choice("abcdefghijklmnopqrstuvwxyz")
+                await self.page.keyboard.type(wrong_char)
+                await asyncio.sleep(random.uniform(0.2, 0.4))
+                await self.page.keyboard.press("Backspace")
+                await asyncio.sleep(random.uniform(0.1, 0.3))
+                # Now type the correct one
+            
             # Base latency
-            latency = random.uniform(0.05, 0.15)
+            latency = random.uniform(0.08, 0.22) # Slightly slower and more varied
             
             # Add micro-hesitations for spaces or special chars
             if char in [' ', '.', '@']:
-                latency += random.uniform(0.1, 0.2)
+                latency += random.uniform(0.15, 0.35)
                 
             await self.page.keyboard.type(char)
             await asyncio.sleep(latency)
+            i += 1
             
         # Post-typing hesitation (checking work)
-        await asyncio.sleep(random.uniform(0.3, 0.8))
+        await asyncio.sleep(random.uniform(0.5, 1.2))
+
 
     async def human_click(self, selector):
         """
@@ -153,7 +195,24 @@ class StealthBrowser:
             print(f"[StealthBrowser] ❌ Click Failed: {e}")
             return False
     
+    async def apply_som_tagging(self):
+        """
+        Injects the SoM tagging script into the current page.
+        """
+        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "modules", "scripts", "tag_elements.js")
+        if not os.path.exists(script_path):
+            print(f"[StealthBrowser] ❌ Tagging script NOT FOUND at {script_path}")
+            return
+            
+        with open(script_path, "r") as f:
+            script = f.read()
+            
+        await self.page.evaluate(script)
+        print("[StealthBrowser] 🏷️ SoM Tagging Applied.")
+
     async def get_screenshot(self, path="latest_view.png"):
+        # Ensure tags are fresh before screenshot
+        await self.apply_som_tagging()
         await self.page.screenshot(path=path)
         return path
 

@@ -2,15 +2,19 @@ import hashlib
 import sqlite3
 import json
 from google.adk.agents import Agent
-from google.adk.model import Model
-from google.adk.tools import Tool, google_search
+from google.adk.models import Gemini
+
+def google_search(query: str) -> str:
+    """Mock Google Search for environment compatibility."""
+    print(f"[MockSearch] Searching for: {query}")
+    return "No scam reports found for this company in mock mode."
 
 from modules.llm_bridge import GroqModel
 from modules.db import get_connection
 
 # Initialize Models
 groq_llm = GroqModel(model_name="groq/llama-3.3-70b-versatile").get_model()
-gemini_flash = Model(model="gemini-2.5-flash-preview")
+gemini_flash = Gemini(model="gemini-2.5-flash-preview")
 
 # --- Tools (Custom) ---
 

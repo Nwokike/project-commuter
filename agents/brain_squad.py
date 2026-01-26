@@ -15,23 +15,38 @@ from modules.vector_store import vector_store
 def query_answer_bank(question: str) -> str:
     """
     Semantic search for a similar question in the answer bank.
+    Using a strict distance threshold (0.4) for reliability.
     """
     results = vector_store.query(question, n_results=1)
-    if results['documents'] and results['distances'][0][0] < 0.5: # Confidence threshold
-        return f"FOUND: {results['documents'][0][0]} (ID: {results['ids'][0][0]})"
+    # distance < 0.4 means high similarity
+    if results['documents'] and results['distances'][0][0] < 0.4: 
+        answer = results['documents'][0][0]
+        id_ = results['ids'][0][0]
+        print(f"[Brain] 🧠 Found answer in bank: {answer}")
+        return f"FOUND: {answer} (ID: {id_})"
+    
+    # Optional: Log the miss for human review or future learning
+    print(f"[Brain] ❓ No clear match in answer bank for: {question}")
     return "NOT_FOUND"
 
 def rag_search(query: str) -> str:
     """
     Semantic search in GitHub summary and CV text via ChromaDB.
+    Ensures context is truncated to fit within model context windows.
     """
-    results = vector_store.query(query, n_results=3)
+    results = vector_store.query(query, n_results=5) # Get more chunks for better coverage
     
-    if not results['documents'][0]:
+    if not results['documents'] or not results['documents'][0]:
         return "NO_CONTEXT_FOUND"
     
-    context = " ".join(results['documents'][0])
-    return context
+    # Join documents and truncate to ~3000 chars to be safe with Llama-3 70b limits
+    full_context = "\n---\n".join(results['documents'][0])
+    truncated_context = full_context[:3000]
+    
+    if len(full_context) > 3000:
+        truncated_context += "\n[...Context Truncated...]"
+        
+    return truncated_context
 
 # --- Agents ---
 
