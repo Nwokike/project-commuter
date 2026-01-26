@@ -1,0 +1,7 @@
+google-adk
+litellm
+playwright
+playwright-stealth
+python-dotenv
+pdfplumber
+google-genai
