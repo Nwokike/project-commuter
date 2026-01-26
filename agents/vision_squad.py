@@ -1,59 +1,92 @@
+import os
+import json
+import asyncio
 from google.adk.agents import Agent
-from modules.llm_bridge import GroqModel, GeminiVisionModel
-from modules.stealth_browser import StealthBrowser
+from google.adk.model import Model
+from google.adk.types import RunContext
+
+from modules.llm_bridge import GroqModel
+from modules.stealth_browser import browser_instance # Import the singleton
 
 # Initialize Models
-groq_llm = GroqModel().get_model()
-gemini_vision = GeminiVisionModel() # Has internal rate limiter
+groq_llm = GroqModel(model_name="groq/llama-3.3-70b-versatile").get_model()
+gemini_model = Model(model="gemini-2.5-flash-preview") 
 
-# --- Tools ---
+# --- Tools (Connected to Browser) ---
 
-async def analyze_viewport(page, screenshot_path: str) -> str:
+async def execute_browser_action(context: RunContext, action: str, som_id: int, value: str = "") -> str:
     """
-    Analyzes the screenshot using Gemini Vision and returns a JSON description 
-    of form fields, buttons, and labels, mapped to SoM IDs.
+    Executes a physical action on the browser using the StealthBrowser singleton.
     """
-    # 1. Inject Visual Tags
-    script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "modules", "scripts", "tag_elements.js")
-    with open(script_path, "r") as f:
-        js_payload = f.read()
-    await page.evaluate(js_payload)
+    print(f"[Navigator] ⚡ Executing: {action} on ID {som_id} (Value: '{value}')")
+    
+    # Ensure browser is running (lazy start if needed, though Orchestrator should have started it)
+    if not browser_instance.page:
+        print("[Navigator] Browser not running! Attempting launch...")
+        await browser_instance.launch()
 
-    # 2. Capture Tagged Screenshot
-    await page.screenshot(path=screenshot_path)
+    selector = f"[data-som-id='{som_id}']"
+    
+    if action == "click":
+        success = await browser_instance.human_click(selector)
+        return "CLICK_SUCCESS" if success else "CLICK_FAILED_NOT_VISIBLE"
+        
+    elif action == "type":
+        await browser_instance.human_type(selector, value)
+        return "TYPE_SUCCESS"
+        
+    elif action == "scroll":
+        # Simple scroll implementation
+        await browser_instance.page.mouse.wheel(0, 500)
+        return "SCROLL_SUCCESS"
+        
+    elif action == "wait":
+        await asyncio.sleep(2)
+        return "WAIT_SUCCESS"
+        
+    elif action == "sos":
+        return "SOS_TRIGGERED"
 
-    prompt = """
-    Analyze this job application page. Every interactive element has been tagged with a red number (SoM ID).
-    Return a JSON object with:
-    1. "page_type": ("form", "review", "success", "login", "other")
-    2. "elements": List of interactive objects: {"id": SoM_ID, "label": text, "type": input/button, "purpose": e.g., "submit_button"}.
-    3. "errors": Any visible error messages.
-    Focus on elements needed for application (e.g., 'First Name', 'Submit').
-    """
-    print(f"[Tool:Vision] Analyzing tagged {screenshot_path}...")
-    result = gemini_vision.analyze_image(screenshot_path, prompt)
-    return result if result else "{'error': 'Vision Analysis Failed'}"
+    return "UNKNOWN_ACTION"
 
 # --- Agents ---
 
+# 1. Vision Agent (Type C: Pure Model / Multimodal)
 vision_agent = Agent(
     name="vision_agent",
-    model=groq_llm, 
-    description="See the tagged page and extract form elements by SoM ID.",
-    instruction="Use the `analyze_viewport` tool. Return a structured JSON where elements are identified by their 'id' (the red number)." ,
-    tools=[analyze_viewport]
+    model=gemini_model, 
+    description="The Eyes. Analyzes the visual state of the browser.",
+    instruction="""
+    You are the Visionary. You receive a screenshot of a web page where interactive elements are tagged with red numbers (SoM IDs).
+    
+    Your Goal: Analyze the page and decide the next step to apply for the job.
+    
+    Output Strict JSON ONLY:
+    {
+        "page_type": "login" | "form" | "review" | "success" | "captcha",
+        "action": "click" | "type" | "scroll" | "wait" | "sos",
+        "target_som_id": <int>,
+        "value": "<text to type if action is type>",
+        "reasoning": "<brief explanation>"
+    }
+    
+    If you see a form field like "First Name", output action="type".
+    If you see a "Submit" or "Next" button, output action="click".
+    If you see a CAPTCHA or are confused, output action="sos".
+    """
 )
 
+# 2. Navigation Agent (Type B: Custom Tool)
 navigation_agent = Agent(
     name="navigation_agent",
     model=groq_llm,
-    description="Decides the next action using SoM IDs.",
-    instruction="Given the UI map (with SoM IDs), decide what to click or type. Return JSON with 'action', 'som_id', and 'value' (if typing)."
-)
-
-scroll_agent = Agent(
-    name="scroll_agent",
-    model=groq_llm,
-    description="Scrolls the page to find elements.",
-    instruction="Return JSON: {'action': 'scroll', 'direction': 'down', 'amount': 500}"
+    description="The Hands. Executes the decision made by the Visionary.",
+    instruction="""
+    You are the Navigator. You receive a JSON instruction from the Visionary.
+    Your job is to execute it using the `execute_browser_action` tool.
+    
+    If action is "click", call execute_browser_action("click", target_som_id).
+    If action is "type", call execute_browser_action("type", target_som_id, value).
+    """,
+    tools=[execute_browser_action]
 )
