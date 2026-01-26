@@ -5,3 +5,5 @@ playwright-stealth
 python-dotenv
 pdfplumber
 google-genai
+Pillow
+chromadb

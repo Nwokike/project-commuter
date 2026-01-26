@@ -8,47 +8,30 @@ from modules.db import get_connection
 # Initialize LLM
 groq_llm = GroqModel().get_model()
 
+from modules.vector_store import vector_store
+
 # --- Tools ---
 
 def query_answer_bank(question: str) -> str:
     """
-    Fuzzy searches the SQLite answer bank for a similar question.
+    Semantic search for a similar question in the answer bank.
     """
-    conn = get_connection()
-    cursor = conn.cursor()
-    # Simple likeness check for now. In production, use vector embeddings (optional upgrade).
-    cursor.execute("SELECT answer_text, source FROM answer_bank WHERE question_text LIKE ?", (f"%{question}%",))
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return f"FOUND: {row[0]} (Source: {row[1]})"
+    results = vector_store.query(question, n_results=1)
+    if results['documents'] and results['distances'][0][0] < 0.5: # Confidence threshold
+        return f"FOUND: {results['documents'][0][0]} (ID: {results['ids'][0][0]})"
     return "NOT_FOUND"
 
 def rag_search(query: str) -> str:
     """
-    Searches GitHub summary and CV text for keywords.
+    Semantic search in GitHub summary and CV text via ChromaDB.
     """
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+    results = vector_store.query(query, n_results=3)
     
-    # Github
-    gh_path = os.path.join(data_dir, "github_summary.json")
-    gh_context = ""
-    if os.path.exists(gh_path):
-        with open(gh_path, "r") as f:
-            repos = json.load(f)
-            # Naive text match
-            for r in repos:
-                if query.lower() in str(r).lower():
-                    gh_context += f"Repo: {r['name']} ({r['language']}). "
-    
-    # CV
-    # Assuming CV text is just ingested on fly or stored. Let's assume we read the raw PDF if needed 
-    # or we should have saved the text. For now, we'll suggest looking at the file.
-    # In a full RAG, we'd have a vector store.
-    
-    if not gh_context:
+    if not results['documents'][0]:
         return "NO_CONTEXT_FOUND"
-    return gh_context
+    
+    context = " ".join(results['documents'][0])
+    return context
 
 # --- Agents ---
 

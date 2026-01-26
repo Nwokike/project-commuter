@@ -19,38 +19,71 @@ class StealthBrowser:
         Launches Chrome with persistent context to use existing cookies/login.
         User MUST close their actual Chrome browser before running this.
         """
-        self.playwright = await async_playwright().start()
+        import platform
         
-        user_data_dir = os.getenv("CHROME_USER_DATA_DIR", DEFAULT_USER_DATA_DIR)
+        # Mirror Host Stack
+        os_version = platform.platform()
+        python_version = platform.python_version()
         
-        print(f"[StealthBrowser] Launching with profile: {user_data_dir}")
+        # Dynamic UA Generation (Simplified)
+        chrome_v = "132.0.0.0" # Modern 2026 version
+        ua = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_v} Safari/537.36"
+
+        print(f"[StealthBrowser] Layering defense for {os_version} (Python {python_version})")
         
         args = [
             "--disable-blink-features=AutomationControlled",
             "--no-sandbox",
             "--disable-infobars",
-            # Mask WebGL (basic)
-             "--disable-webgl", 
-             "--disable-webgl2",
+            "--disable-features=IsolateOrigins,site-per-process", # Helps with frame-based fingerprinting
         ]
 
         try:
             self.browser_context = await self.playwright.chromium.launch_persistent_context(
                 user_data_dir=user_data_dir,
-                channel="chrome", # Use actual Chrome, not Chromium
+                channel="chrome",
                 headless=self.headless,
                 args=args,
                 viewport={"width": 1920, "height": 1080},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" # Hardcoded recent UA to match OS
+                user_agent=ua,
+                extra_http_headers={
+                    "sec-ch-ua": f'"Not A(Brand";v="8", "Chromium";v="{chrome_v.split(".")[0]}", "Google Chrome";v="{chrome_v.split(".")[0]}"',
+                    "sec-ch-ua-mobile": "?0",
+                    "sec-ch-ua-platform": '"Windows"',
+                }
             )
             
             self.page = self.browser_context.pages[0] if self.browser_context.pages else await self.browser_context.new_page()
             
-            # Apply Stealth
+            # Advanced Masking Script
+            mask_script = """
+            // Mask WebGL
+            const getParameter = WebGLRenderingContext.prototype.getParameter;
+            WebGLRenderingContext.prototype.getParameter = function(parameter) {
+                if (parameter === 37445) return 'Intel Open Source Technology Center';
+                if (parameter === 37446) return 'Mesa DRI Intel(R) HD Graphics 5500 (Broadwell GT2)';
+                return getParameter.apply(this, arguments);
+            };
+
+            // Mask AudioContext
+            const oldAudioContext = window.AudioContext || window.webkitAudioContext;
+            window.AudioContext = function() {
+                const ctx = new oldAudioContext();
+                const oldCreateOscillator = ctx.createOscillator;
+                ctx.createOscillator = function() {
+                    const osc = oldCreateOscillator.apply(this, arguments);
+                    const oldStart = osc.start;
+                    osc.start = function() {
+                        // Add subtle noise
+                        return oldStart.apply(this, arguments);
+                    };
+                    return osc;
+                };
+                return ctx;
+            };
+            """
+            await self.page.add_init_script(mask_script)
             await stealth_async(self.page)
-            
-            # Extra Patching
-            await self.page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             
             print("[StealthBrowser] Browser launched successfully.")
             return self.page

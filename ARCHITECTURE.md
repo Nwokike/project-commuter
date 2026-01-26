@@ -1,21 +1,23 @@
 # Project Commuter Architecture
 
-Project Commuter follows a **Swarm-based Orchestration** pattern inspired by the "1 Agent 1 Tool" philosophy. This document breaks down how the agents interact and maintain a "Zero Failure" mandate.
+Project Commuter follows a **Swarm-based Orchestration** pattern with a robust **State Machine** at its core. This document breaks down the v2.0 architecture designed for high-fidelity automation and undetectable browser interaction.
 
 ## 🏗 System Overview
 
 ```mermaid
 graph TD
     User["Human User"] <--> Dashboard
-    Dashboard <--> DB[(SQLite Memory)]
-    Orchestrator[Swarm Orchestrator] <--> DB
+    Dashboard <--> DB[(SQLite + ChromaDB)]
+    Orchestrator[State Machine Orchestrator] <--> DB
     Orchestrator --> Scout[Scout Squad]
     Orchestrator --> Vision[Vision Squad]
     Orchestrator --> Brain[Brain Squad]
     Orchestrator --> Ops[Ops Squad]
     
-    Vision --> Gemini["Gemini 3 Flash (Vision)"]
+    Vision --> SoM["Set-of-Mark (Visual Tagging)"]
+    SoM --> Gemini["Gemini 3 Flash (Vision)"]
     Scout --> Groq["Groq (LLM)"]
+    Brain --> ChromaDB["ChromaDB (Vector Store)"]
     Brain --> Groq
     
     Ops --> User
@@ -23,39 +25,33 @@ graph TD
 
 ## 🐜 The 1-Agent-1-Tool Swarm
 
-To avoid complexity and maximize reliability, every agent in the swarm is restricted to a single primary capability.
-
 ### 1. Scout Squad (Discovery)
 - **JobSearchAgent**: Constructs search URLs based on intent.
-- **ListingParserAgent**: Parses HTML chunks into structured JSON.
-- **SkepticAgent**: Conducts company "Background Checks" via Google Search tools.
+- **ListingParserAgent**: Parses HTML chunks into structured JSON using Groq.
 
 ### 2. Vision Squad (Interaction)
-- **VisionAgent**: The "Eyes." Converts screenshots into structured UI maps using Gemini Flash.
-- **NavigationAgent**: The "Hands." Decides where to click or type based on the UI map.
-- **ScrollAgent**: Manages reading behavior and page pagination.
+- **VisionAgent**: The "Eyes." Uses **Set-of-Mark (SoM)** visual tagging to label elements before analysis by Gemini Flash. Returns SoM IDs.
+- **NavigationAgent**: The "Hands." Decides actions (click/type) based on SoM IDs, eliminating CSS selector brittleness.
 
 ### 3. Brain Squad (Context Engine)
-This is the core anti-hallucination layer.
-- **MemoryAgent**: Fuzzy-matches against previous answers in the SQLite `answer_bank`.
-- **ContextAgent**: Performs RAG (Retrieval-Augmented Generation) against the user's encoded CV and GitHub summary.
-- **DecisionAgent**: The final arbiter. If neither Memory nor Context can provide a >90% confidence answer, it defaults to the SOS protocol.
+This is the core semantic layer.
+- **MemoryAgent**: Semantic search against previous answers using **ChromaDB**.
+- **ContextAgent**: Performs RAG against the user's CV and GitHub summary stored in the vector store.
+- **DecisionAgent**: The final arbiter. Compares Memory and Context results to decide the final input or trigger SOS.
 
 ### 4. Ops Squad (Fail-Safe)
-- **SOSAgent**: Triggers mobile alerts and pauses the swarm.
-- **LiaisonAgent**: Polls for user feedback from the dashboard.
+- **SOSAgent**: Triggers mobile alerts when human intervention is required.
+- **LiaisonAgent**: Interfaces with the Streamlit dashboard for user overrides.
 
-## 🧠 Anti-Hallucination Protocol
+## 🧠 State Machine Orchestrator
+The `main.py` orchestrator implements a formal state machine:
+- **SCOUTING**: Finding new jobs.
+- **NAVIGATING**: Moving to the application page.
+- **APPLYING**: The core loop using SoM Vision and the Brain Squad.
+- **SOS**: Paused state waiting for user input.
+- **IDLE**: Scheduled downtime to simulate human sleep cycles.
 
-When the bot encounters a question like *"Do you have experience with Redis?"*:
-
-1. **Memory Level**: Check if the user has answered this *exact* question before.
-2. **Context Level**: Scan GitHub repos and CV. If the user has a repo named "redis-caching-layer", the bot can deduce "Yes."
-3. **SOS Level**: If the bot finds zero evidence, it **MUST** pause. No guessing allowed.
-
-## 🕵️ Stealth Protocols
-
-- **Resident IP**: Runs locally, matching the user's usual login patterns.
-- **Playwright-Stealth**: Patches `navigator.webdriver` and masks browser fingerprints.
-- **Bezier Movement**: Mouse movements follow randomized arcs, not straight lines.
-- **Coffee Break Algorithm**: Randomized pauses after batch applications to simulate human fatigue.
+## 🕵️ Stealth Protocols 
+- **Dynamic Fingerprinting**: Mirrors the host machine's platform, OS, and Python versions in the User-Agent.
+- **Advanced Masking**: Spoofs WebGL vendor/renderer and AudioContext fingerprints to blend in with standard Windows/Chrome profiles.
+- **Playwright-Stealth**: Core patches to avoid basic bot detection.
