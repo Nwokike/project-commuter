@@ -23,11 +23,11 @@ class GroqFallbackClient(LiteLlm):
     A smart wrapper that manages a pool of Groq models.
     Implements 'Waterfall' fallback to handle TPD limits.
     """
-    # CRITICAL FIX 1: Corrected Model IDs from your PDF & LiteLLM Standards
+    # CRITICAL FIX 1: Corrected Model IDs (500k TPD models first)
     _model_names: list = PrivateAttr(default=[
         "groq/llama-3.1-8b-instant",                   # Tier 1: Proven Stability (500k Limit)
         "groq/meta-llama/llama-4-scout-17b-16e-instruct", # Tier 2: The New 17B (500k Limit)
-        "groq/llama-3.3-70b-versatile"                 # Tier 3: Smartest (100k Limit - Exhausted today)
+        "groq/llama-3.3-70b-versatile"                 # Tier 3: Smartest (100k Limit - Use only if others fail)
     ])
     _clients: list = PrivateAttr(default=[])
 
@@ -44,8 +44,9 @@ class GroqFallbackClient(LiteLlm):
     async def generate_content_async(self, contents, **kwargs):
         last_error = None
         
-        # CRITICAL FIX 2: Clean the arguments! 
-        # We remove 'model' from kwargs so the backup client uses its OWN defined model name.
+        # CRITICAL FIX 2: Argument Cleaning
+        # The ADK tries to pass 'model="old_name"' in kwargs. We MUST remove it
+        # so the backup client uses its OWN internal model name.
         if 'model' in kwargs:
             del kwargs['model']
         
@@ -55,6 +56,8 @@ class GroqFallbackClient(LiteLlm):
                 # ADK Runner passes 'contents' and kwargs. We forward them.
                 async for chunk in client.generate_content_async(contents, **kwargs):
                     yield chunk
+                
+                # If success, return immediately
                 return
 
             except Exception as e:
@@ -65,6 +68,7 @@ class GroqFallbackClient(LiteLlm):
                     last_error = e
                     continue 
                 else:
+                    # If it's a critical error (like Auth), log it
                     print(f"[Bridge] ❌ {model_name} Critical Error: {e}")
                     last_error = e
 
@@ -120,7 +124,8 @@ class GeminiFallbackClient(Gemini):
 
             except Exception as e:
                 error_str = str(e)
-                if any(err in error_str for err in ["429", "404", "Rate limit"]):
+                # Catch Rate Limits
+                if any(err in error_str for err in ["429", "404", "Rate limit", "quota"]):
                     print(f"[Bridge] ⚠️ {model_name} exhausted. Switching to next...")
                     last_error = e
                     continue 
