@@ -2,7 +2,7 @@
 
 First off, thank you for considering contributing to Project Commuter! 🐜
 
-We are building the world's most robust **Local-First Job Agent**. To keep this project accessible and safe for everyone, please follow these guidelines.
+To keep this project accessible and safe for everyone, please follow these guidelines.
 
 ## 🛠️ How to Contribute
 
