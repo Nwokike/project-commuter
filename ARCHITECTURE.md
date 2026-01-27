@@ -24,6 +24,7 @@ graph TD
         UI -->|Overrides| Ops
     end
 
+
 ```
 
 ### 1. The Orchestrator (The COO)
@@ -48,9 +49,9 @@ graph TD
 
 * **Context Engine**:
 * Instead of guessing answers, the Brain Squad retrieves chunks of text from your uploaded CV.
+
+
 * **Vector Search**: Matches application questions ("Do you have experience with CI/CD?") to relevant bullet points in your resume.
-
-
 
 ### 4. The Ops Squad (Reliability)
 
@@ -64,7 +65,7 @@ graph TD
 
 We employ a "Defense-in-Depth" strategy against bot detection:
 
-1. **Profile Cloning**: We clone your existing Chrome profile to a temp directory. This allows the bot to use your valid cookies and session tokens without locking your main browser.
+1. **Persistent Bot Identity**: Instead of cloning your personal profile (which causes file lock issues), the bot maintains a **dedicated, encrypted Chrome profile** (`data/chrome_bot_profile`). You log in once, and the bot persists that session forever, keeping your personal browsing data completely separate and safe.
 2. **Fingerprint Consistency**: We do not block ads or trackers blindly, as this is a bot signal. Instead, we match the fingerprint of a standard Windows 10/11 Home user.
 3. **Biometric Mimicry**:
 * **Typing**: Variable latency between keystrokes. Mistakes are made and backspaced.
