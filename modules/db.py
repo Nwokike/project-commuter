@@ -4,18 +4,18 @@ import os
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "bot_memory.db")
 
 SCHEMA = """
--- 1. Job Queue (Existing)
+-- 1. Job Queue
 CREATE TABLE IF NOT EXISTS job_queue (
     job_hash TEXT PRIMARY KEY,
     url TEXT NOT NULL,
     company TEXT,
     title TEXT,
-    status TEXT DEFAULT 'PENDING', -- PENDING, APPLIED, REJECTED, IGNORED, SOS
+    status TEXT DEFAULT 'PENDING', -- PENDING, APPLIED, REJECTED, IGNORED, SOS, PROCESSED
     confidence_score FLOAT DEFAULT 0.0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Answer Bank (Existing)
+-- 2. Answer Bank
 CREATE TABLE IF NOT EXISTS answer_bank (
     question_hash TEXT PRIMARY KEY,
     question_text TEXT NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS answer_bank (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Application Logs (Existing)
+-- 3. Application Logs
 CREATE TABLE IF NOT EXISTS application_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_hash TEXT,
@@ -35,27 +35,28 @@ CREATE TABLE IF NOT EXISTS application_logs (
     FOREIGN KEY(job_hash) REFERENCES job_queue(job_hash)
 );
 
--- 4. User Configuration (NEW)
--- Stores settings like 'search_query', 'cv_text', 'job_location'
+-- 4. User Configuration
 CREATE TABLE IF NOT EXISTS user_config (
     key TEXT PRIMARY KEY,
     value TEXT
 );
 
--- 5. Agent Thoughts (NEW)
--- Stores the JSON decisions and visual context for the Live Feed
+-- 5. Agent Thoughts
 CREATE TABLE IF NOT EXISTS agent_thoughts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     agent_name TEXT,
-    thought_content TEXT, -- JSON string of the decision
-    visual_context_path TEXT -- Path to the screenshot analyzed (if any)
+    thought_content TEXT,
+    visual_context_path TEXT
 );
 """
 
 def get_connection():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    return sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
+    # CRITICAL FIX: Enable Write-Ahead Logging for concurrency
+    conn.execute("PRAGMA journal_mode=WAL;")
+    return conn
 
 def init_db():
     conn = get_connection()
