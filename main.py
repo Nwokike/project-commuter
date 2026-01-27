@@ -7,7 +7,6 @@ from google.genai import types
 from agents.orchestrator import orchestrator_agent
 from modules.db import init_db
 
-# Load Environment
 load_dotenv()
 
 async def main():
@@ -19,7 +18,6 @@ async def main():
     # 2. Setup ADK Runner
     from google.adk.sessions import InMemorySessionService
     
-    # Initialize the session service separately so we can access it
     session_service = InMemorySessionService()
     
     runner = Runner(
@@ -30,19 +28,22 @@ async def main():
 
     print("[System] Orchestrator is online. Waiting for instructions...")
     
-    # --- CRITICAL FIX: Create the session before using it ---
     session_id = "session_1"
     user_id = "local_user"
     
-    # Ensure the session exists in the service
     if hasattr(session_service, "create_session"):
-        # Synchronous creation
-        session_service.create_session(session_id=session_id, user_id=user_id)
+        await session_service.create_session(
+            session_id=session_id, 
+            user_id=user_id,
+            app_name="ProjectCommuter"
+        )
     elif hasattr(session_service, "async_create_session"):
-        # Async creation (common in newer ADK versions)
-        await session_service.async_create_session(session_id=session_id, user_id=user_id)
+        await session_service.async_create_session(
+            session_id=session_id, 
+            user_id=user_id,
+            app_name="ProjectCommuter"
+        )
     else:
-        # Fallback manual creation if methods differ (rare)
         from google.adk.sessions import Session
         session_service.sessions[session_id] = Session(id=session_id, user_id=user_id)
 
@@ -51,8 +52,7 @@ async def main():
     
     content = types.Content(role="user", parts=[types.Part(text=initial_prompt)])
     
-    # Now run with the pre-created session_id
-    async for event in runner.run(user_id=user_id, session_id=session_id, new_message=content):
+    for event in runner.run(user_id=user_id, session_id=session_id, new_message=content):
         print(f"[{event.type}]: {event}")
 
 if __name__ == "__main__":
