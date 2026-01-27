@@ -7,10 +7,9 @@ import json
 from playwright.async_api import async_playwright, Page, BrowserContext
 from playwright_stealth import Stealth
 
-# Standard Windows Chrome User Data path
-# NOTE: Adjust for Mac/Linux if needed or make dynamic
-DEFAULT_USER_DATA_DIR = os.path.join(os.getenv("LOCALAPPDATA"), "Google", "Chrome", "User Data")
-TEMP_PROFILE_DIR = os.path.join(os.getenv("TEMP"), "chrome_bot_profile_clone")
+# CRITICAL FIX: Use a dedicated, persistent profile directory.
+# We do NOT clone the main user profile anymore to avoid file lock crashes.
+BOT_PROFILE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "chrome_bot_profile")
 
 class StealthBrowser:
     def __init__(self, headless=False):
@@ -19,74 +18,17 @@ class StealthBrowser:
         self.page: Page = None
         self.playwright = None
 
-    def _clone_profile(self):
-        """
-        Copies the user's Chrome profile to a temp directory to avoid database locks.
-        This allows the user to use their browser while the bot runs.
-        """
-        print(f"[StealthBrowser] 🧬 Cloning Chrome Profile to {TEMP_PROFILE_DIR}...")
-        
-        # Files needed for cookies and login state
-        files_to_copy = [
-            "Cookies",
-            "Login Data",
-            "Preferences",
-            "Web Data",
-            "Local State"
-        ]
-        
-        # Chrome profiles are often in 'Default' or 'Profile X'
-        # We'll try to find 'Default' first
-        source_profile = os.path.join(DEFAULT_USER_DATA_DIR, "Default")
-        if not os.path.exists(source_profile):
-            source_profile = DEFAULT_USER_DATA_DIR # Fallback to root or user should specify
-            
-        target_profile = os.path.join(TEMP_PROFILE_DIR, "Default")
-        os.makedirs(target_profile, exist_ok=True)
-        
-        # Copy Local State to the root of temp dir
-        local_state_src = os.path.join(DEFAULT_USER_DATA_DIR, "Local State")
-        if os.path.exists(local_state_src):
-            try:
-                shutil.copy2(local_state_src, os.path.join(TEMP_PROFILE_DIR, "Local State"))
-            except Exception as e:
-                print(f"[StealthBrowser] Warning: Could not copy Local State: {e}")
-
-        for f in files_to_copy:
-            src = os.path.join(source_profile, f)
-            dst = os.path.join(target_profile, f)
-            
-            if os.path.exists(src):
-                try:
-                    # Use copy2 to preserve metadata
-                    shutil.copy2(src, dst)
-                    print(f"[StealthBrowser] Copied {f}")
-                except Exception as e:
-                    print(f"[StealthBrowser] Warning: Could not copy {f}: {e}")
-                    # If it's locked, we might still be able to run but without cookies
-            else:
-                # Some files might be in subfolders like 'Network' in newer Chrome versions
-                network_src = os.path.join(source_profile, "Network", f)
-                network_dst = os.path.join(target_profile, "Network")
-                if os.path.exists(network_src):
-                    os.makedirs(network_dst, exist_ok=True)
-                    try:
-                        shutil.copy2(network_src, os.path.join(network_dst, f))
-                        print(f"[StealthBrowser] Copied {f} from Network folder")
-                    except Exception as e:
-                        print(f"[StealthBrowser] Warning: Could not copy {f} from Network: {e}")
-
     async def launch(self):
         """
-        Launches Chrome with persistent context.
+        Launches Chrome with a persistent Bot Context.
         """
         self.playwright = await async_playwright().start()
         
-        # Clone profile before launch
-        self._clone_profile()
+        # Ensure profile dir exists
+        os.makedirs(BOT_PROFILE_DIR, exist_ok=True)
         
-        # Dynamic UA Generation (Simplified)
-        chrome_v = "132.0.0.0" # Modern 2026 version
+        # Dynamic User Agent (Updated for 2026 realism)
+        chrome_v = "132.0.0.0" 
         ua = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/{chrome_v} Safari/537.36"
 
         args = [
@@ -94,14 +36,16 @@ class StealthBrowser:
             "--no-sandbox",
             "--disable-infobars",
             "--disable-features=IsolateOrigins,site-per-process",
+            "--start-maximized" # Helps with visibility
         ]
 
-        print(f"[StealthBrowser] 🚀 Launching Browser from {TEMP_PROFILE_DIR}...")
+        print(f"[StealthBrowser] 🚀 Launching Browser from {BOT_PROFILE_DIR}...")
         
         try:
-            # Use the cloned profile
+            # Launch Persistent Context
+            # Note: This will open a window. The user MUST log in here manually the first time.
             self.browser_context = await self.playwright.chromium.launch_persistent_context(
-                user_data_dir=TEMP_PROFILE_DIR,
+                user_data_dir=BOT_PROFILE_DIR,
                 channel="chrome",
                 headless=self.headless,
                 args=args,
@@ -132,7 +76,6 @@ class StealthBrowser:
         try:
             await self.page.click(selector)
         except:
-            # Fallback for non-clickable inputs
             pass
             
         print(f"[StealthBrowser] ⌨️ Typing: '{text}' into {selector}")
@@ -146,32 +89,31 @@ class StealthBrowser:
             if random.random() < 0.01 and char.isalpha():
                 wrong_char = random.choice("abcdefghijklmnopqrstuvwxyz")
                 await self.page.keyboard.type(wrong_char)
-                await asyncio.sleep(random.uniform(0.2, 0.4))
+                await asyncio.sleep(random.uniform(0.1, 0.3))
                 await self.page.keyboard.press("Backspace")
                 await asyncio.sleep(random.uniform(0.1, 0.3))
-                # Now type the correct one
             
             # Base latency
-            latency = random.uniform(0.08, 0.22) # Slightly slower and more varied
+            latency = random.uniform(0.05, 0.15) 
             
-            # Add micro-hesitations for spaces or special chars
             if char in [' ', '.', '@']:
-                latency += random.uniform(0.15, 0.35)
+                latency += random.uniform(0.1, 0.2)
                 
             await self.page.keyboard.type(char)
             await asyncio.sleep(latency)
             i += 1
             
-        # Post-typing hesitation (checking work)
-        await asyncio.sleep(random.uniform(0.5, 1.2))
+        await asyncio.sleep(random.uniform(0.3, 0.8))
 
 
     async def human_click(self, selector):
         """
-        Moves mouse in a bezier-like curve (simplified) then clicks.
+        Moves mouse in a bezier-like curve then clicks.
         """
         try:
-            box = await self.page.locator(selector).bounding_box()
+            # Locate element
+            loc = self.page.locator(selector).first
+            box = await loc.bounding_box()
             if not box:
                 print(f"[StealthBrowser] ⚠️ Element {selector} not visible/found.")
                 return False
@@ -180,12 +122,8 @@ class StealthBrowser:
             target_x = box["x"] + (box["width"] / 2) + random.randint(-5, 5)
             target_y = box["y"] + (box["height"] / 2) + random.randint(-5, 5)
             
-            # Current mouse pos (Playwright defaults to 0,0)
-            # We simply move there in steps to simulate "flight"
-            await self.page.mouse.move(target_x, target_y, steps=random.randint(10, 25))
-            
-            # Hover briefly
-            await asyncio.sleep(random.uniform(0.1, 0.3))
+            await self.page.mouse.move(target_x, target_y, steps=random.randint(5, 15))
+            await asyncio.sleep(random.uniform(0.1, 0.2))
             
             await self.page.mouse.click(target_x, target_y)
             print(f"[StealthBrowser] 🖱️ Clicked {selector}")
@@ -208,6 +146,8 @@ class StealthBrowser:
             script = f.read()
             
         await self.page.evaluate(script)
+        # Wait a tick for DOM update
+        await asyncio.sleep(0.5)
         print("[StealthBrowser] 🏷️ SoM Tagging Applied.")
 
     async def get_screenshot(self, path="latest_view.png"):
@@ -222,6 +162,5 @@ class StealthBrowser:
         if self.playwright:
             await self.playwright.stop()
 
-# Global Singleton for the App to access
-# In a real ADK app, this might be managed by the Runtime, but a global is fine for Phase 4
+# Global Singleton
 browser_instance = StealthBrowser(headless=False)
