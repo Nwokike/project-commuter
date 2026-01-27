@@ -12,10 +12,8 @@ load_dotenv()
 async def main():
     print("[System] Initializing Project Commuter v2.1 (ADK Native)...")
     
-    # 1. Initialize Infrastructure
     init_db()
     
-    # 2. Setup ADK Runner
     from google.adk.sessions import InMemorySessionService
     
     session_service = InMemorySessionService()
@@ -47,13 +45,12 @@ async def main():
         from google.adk.sessions import Session
         session_service.sessions[session_id] = Session(id=session_id, user_id=user_id)
 
-    # 3. Start the Loop
     initial_prompt = "Check the system status and decide what to do next."
     
     content = types.Content(role="user", parts=[types.Part(text=initial_prompt)])
     
     for event in runner.run(user_id=user_id, session_id=session_id, new_message=content):
-        print(f"[{event.type}]: {event}")
+        print(f"[Event]: {event}")
 
 if __name__ == "__main__":
     try:
