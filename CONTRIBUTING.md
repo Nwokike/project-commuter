@@ -38,3 +38,4 @@ The project uses a modular "Squad" structure.
 
 * **Be Respectful**: We are all here to learn and build.
 * **Be Ethical**: Do not contribute code designed to spam, harass, or maliciously scrape platforms. This project is for personal automation only.
+

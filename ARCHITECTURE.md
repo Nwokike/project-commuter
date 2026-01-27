@@ -39,15 +39,15 @@ graph TD
 * *Why Gemini?* It has superior OCR and spatial reasoning capabilities compared to pure text models.
 
 
-* **Navigation Agent (Groq/Llama 3)**:
+* **Navigation Agent (Groq/Llama 4)**:
 * The "Hands" of the operation. It executes the biometrically smoothed mouse movements and typing.
 
 
 
 ### 3. The Brain Squad (The Memory)
 
-* **RAG Engine (ChromaDB)**:
-* Instead of guessing answers, the Brain Squad retrieves chunks of text from your uploaded CV and GitHub history.
+* **Context Engine**:
+* Instead of guessing answers, the Brain Squad retrieves chunks of text from your uploaded CV.
 * **Vector Search**: Matches application questions ("Do you have experience with CI/CD?") to relevant bullet points in your resume.
 
 
@@ -72,10 +72,10 @@ We employ a "Defense-in-Depth" strategy against bot detection:
 
 
 
-## 📉 Cost Optimization 
+## 📉 Cost Optimization (The 2026 Strategy)
 
 The system is architected to run **100% Free**.
 
-* **High Volume Logic**: Handled by **Groq (Llama 3.3)** (1,000 req/day limit).
+* **High Volume Logic**: Handled by **Groq (Llama 3.1 8B / 4 Scout)** (500k req/day limit).
 * **Visual Logic**: Handled by **Gemini 2.5 Flash** (20-50 req/day limit).
 * **Fallback Swarm**: If `Flash` hits a rate limit, the bridge automatically downgrades to `Flash-Lite` or upgrades to `Gemini 3` seamlessly.

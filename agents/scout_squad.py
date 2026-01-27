@@ -1,24 +1,32 @@
 import hashlib
 import sqlite3
-import json
+import urllib.parse
 from google.adk.agents import Agent
 from google.adk.models import Gemini
 
 from modules.llm_bridge import GroqModel, GeminiFallbackClient
 from modules.db import get_connection
 
-# Initialize Models
-groq_llm = GroqModel(model_name="groq/llama-3.3-70b-versatile").get_model()
-
-# UPDATED: Use Fallback Client
+# Initialize Models (Uses the Fallback Swarm we built earlier)
+groq_llm = GroqModel().get_model()
 gemini_fallback = GeminiFallbackClient()
 
 # --- Tools (Custom) ---
 
-def google_search(query: str) -> str:
-    """Mock Google Search for environment compatibility."""
-    print(f"[MockSearch] Searching for: {query}")
-    return "No scam reports found for this company in mock mode."
+def generate_search_url(query: str) -> str:
+    """
+    Constructs a LinkedIn Job Search URL with strict 'Easy Apply' filtering.
+    """
+    base_url = "https://www.linkedin.com/jobs/search/?"
+    params = {
+        "keywords": query,
+        "f_AL": "true",  # CRITICAL: Forces 'Easy Apply' filter
+        "sortBy": "R",   # Sort by Relevance
+        "f_TPR": "r86400" # Past 24 hours (Keep it fresh)
+    }
+    final_url = base_url + urllib.parse.urlencode(params)
+    print(f"[Scout] Generated URL: {final_url}")
+    return final_url
 
 def check_db_exists(job_url: str) -> str:
     """
@@ -51,14 +59,25 @@ def add_to_queue(url: str, company: str, title: str) -> str:
     finally:
         conn.close()
 
+def google_search(query: str) -> str:
+    """Mock Google Search for environment compatibility."""
+    # In a real deployment, this would hit SerpAPI or Google Custom Search
+    return "No scam reports found (Mock)."
+
 # --- Agents ---
 
 # 1. Job Search Agent
 job_search_agent = Agent(
     name="job_search_agent",
     model=groq_llm,
-    description="Generates optimized search URLs for LinkedIn/Indeed.",
-    instruction="Given user criteria (e.g., 'Django London'), generate a valid LinkedIn Jobs search URL. Return ONLY the URL string."
+    description="Generates safe, optimized search URLs.",
+    instruction="""
+    Your goal is to start a job search.
+    You MUST use the `generate_search_url` tool to create the link.
+    Do not guess the URL. Do not create one yourself.
+    Return ONLY the URL provided by the tool.
+    """,
+    tools=[generate_search_url]
 )
 
 # 2. Listing Parser Agent
@@ -79,17 +98,14 @@ duplicate_check_agent = Agent(
 )
 
 # 4. Skeptic Agent
-# UPDATED: Switched to Gemini Fallback
 skeptic_agent = Agent(
     name="skeptic_agent",
     model=gemini_fallback,
-    description="Checks for scam reports using Google Search.",
+    description="Checks for scam reports.",
     instruction="""
-    You are the Skeptic. Your job is to verify if a company is legitimate.
-    Use the `Google Search` tool to find reviews or scam reports for the company name.
-    
-    If you find > 2 credible reports of scams, return "RISK".
-    Otherwise, return "SAFE".
+    You are the Skeptic. Verify if a company is legitimate.
+    Use `Google Search` to find reviews.
+    If you find > 2 credible scam reports, return "RISK". Otherwise, return "SAFE".
     """,
-    tools=[google_search] # Native Google Tool
+    tools=[google_search]
 )

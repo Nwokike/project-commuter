@@ -23,7 +23,7 @@ class GroqFallbackClient(LiteLlm):
     A smart wrapper that manages a pool of Groq models.
     Implements 'Waterfall' fallback to handle TPD limits.
     """
-    # CRITICAL FIX 1: Corrected Model IDs from your PDF
+    # CRITICAL FIX 1: Corrected Model IDs from your PDF & LiteLLM Standards
     _model_names: list = PrivateAttr(default=[
         "groq/llama-3.1-8b-instant",                   # Tier 1: Proven Stability (500k Limit)
         "groq/meta-llama/llama-4-scout-17b-16e-instruct", # Tier 2: The New 17B (500k Limit)
@@ -40,13 +40,12 @@ class GroqFallbackClient(LiteLlm):
             LiteLlm(model=name, api_key=GROQ_API_KEY) 
             for name in self._model_names
         ]
-        # Removed self.name assignment to fix Pydantic ValueError
 
     async def generate_content_async(self, contents, **kwargs):
         last_error = None
         
-        # CRITICAL FIX 2: Prevent 'sticky' model names
-        # We allow each client to use its OWN defined model, ignoring any 'model' passed in args
+        # CRITICAL FIX 2: Clean the arguments! 
+        # We remove 'model' from kwargs so the backup client uses its OWN defined model name.
         if 'model' in kwargs:
             del kwargs['model']
         

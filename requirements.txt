@@ -1,9 +1,9 @@
-google-adk
-litellm
+google-adk>=0.1.6
 playwright
-playwright-stealth
+streamlit
+pandas
 python-dotenv
 pdfplumber
-google-genai
-Pillow
-chromadb
+pydantic
+litellm
+pillow
