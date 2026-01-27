@@ -72,7 +72,7 @@ We employ a "Defense-in-Depth" strategy against bot detection:
 
 
 
-## 📉 Cost Optimization (The 2026 Strategy)
+## 📉 Cost Optimization
 
 The system is architected to run **100% Free**.
 
