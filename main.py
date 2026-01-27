@@ -13,16 +13,16 @@ from modules.stealth_browser import browser_instance
 load_dotenv()
 
 async def main():
-    print("[System] Initializing Project Commuter v2.1 (Phase 3: Eco Mode)...")
+    print("[System] Initializing Project Commuter v2.1 (Refactored)...")
     init_db()
 
     # --- 1. Launch Browser & Dashboard ---
-    print("[System] 🧬 Cloning Chrome Profile & Launching Flight Deck...")
+    # We use the new Persistent Profile (No cloning)
+    print("[System] 🚀 Launching Flight Deck (Persistent Profile)...")
     try:
         if not browser_instance.page:
             await browser_instance.launch()
         
-        # Open Dashboard in the first tab
         print("[System] 🖥️ Opening Dashboard in Bot Browser...")
         await browser_instance.page.goto("http://localhost:8501")
         
@@ -51,12 +51,13 @@ async def main():
     print("[System] Orchestrator is online. Managing queue...")
     save_config("system_status", "RUNNING")
     
-    # --- 3. The Infinite Loop (Eco Mode) ---
+    # --- 3. The Infinite Loop ---
     while True:
         try:
             # Check for Global Stop/SOS from Dashboard
-            if get_config("system_status") != "RUNNING":
-                print("[System] ⏸️ System Paused/SOS. Waiting...")
+            status = get_config("system_status")
+            if status != "RUNNING":
+                print(f"[System] ⏸️ System Paused ({status}). Waiting...")
                 await asyncio.sleep(5)
                 continue
 
@@ -65,6 +66,7 @@ async def main():
             user_id = "local_user"
             app_name = "ProjectCommuter"
             
+            # ADK Session Setup
             if hasattr(session_service, "create_session"):
                 await session_service.create_session(session_id=session_id, user_id=user_id, app_name=app_name)
             elif hasattr(session_service, "async_create_session"):
@@ -79,7 +81,8 @@ async def main():
             current_query = get_config("search_query")
             
             # Pulse Prompt
-            pulse_prompt = f"Check status. If queue empty, find '{current_query}' jobs. If jobs pending, apply. Do ONE thing."
+            # We explicitly ask the Orchestrator to check its new status tool
+            pulse_prompt = f"Check status. If queue empty, find '{current_query}' jobs. If feed found, process it. If jobs pending, apply. Do ONE thing."
             content = types.Content(role="user", parts=[types.Part(text=pulse_prompt)])
             
             print(f"\n[System] 💓 Pulse (Session: {session_id[-4:]})")
@@ -95,19 +98,21 @@ async def main():
 
             final_thought = "".join(orchestrator_response)
             if final_thought:
-                log_thought("Orchestrator", final_thought)
+                # Log only if substantial
+                if len(final_thought) > 10:
+                    log_thought("Orchestrator", final_thought)
 
-            # ECO MODE: 30 Second Cooldown
-            # This ensures we don't spam the API unnecessarily while waiting for page loads
-            print("[System] 💤 Cooling down (30s)...")
-            await asyncio.sleep(30)
+            # OPTIMIZED: 10 Second Cooldown
+            # 30s was too slow. 10s is enough to be polite but efficient.
+            print("[System] 💤 Cooling down (10s)...")
+            await asyncio.sleep(10)
 
         except KeyboardInterrupt:
             print("\n[System] Shutdown requested.")
             break
         except Exception as e:
             print(f"[System] ⚠️ Error in main loop: {e}")
-            await asyncio.sleep(30)
+            await asyncio.sleep(10)
 
 if __name__ == "__main__":
     asyncio.run(main())
