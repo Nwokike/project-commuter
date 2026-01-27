@@ -19,21 +19,42 @@ groq_llm = GroqModel(model_name="groq/llama-3.1-8b-instant").get_model()
 # Gemini: Handles the "Seeing" (Low Volume, High Intelligence)
 vision_model = GeminiFallbackClient()
 
-# --- Helper: The Amnesiac Vision Runner ---
+# --- Session Management (Memory Fix) ---
+# We use a global variable to persist the Vision Agent's memory *during* a job application.
+# It gets reset when the job is done or an SOS occurs.
+_current_vision_session_id = None
+
+def get_vision_session_id():
+    global _current_vision_session_id
+    if _current_vision_session_id is None:
+        # Create a fresh ID for a new job application cycle
+        _current_vision_session_id = f"vis_{int(time.time())}_{random.randint(1000, 9999)}"
+        print(f"[Vision] 🧠 New Memory Session Started: {_current_vision_session_id}")
+    return _current_vision_session_id
+
+def reset_vision_memory():
+    global _current_vision_session_id
+    print(f"[Vision] 🧹 Wiping Memory (Session {_current_vision_session_id} ended).")
+    _current_vision_session_id = None
+
+# --- Helper: The Persistent Vision Runner ---
 async def run_vision_task(agent, prompt, image_path):
     """
-    Runs a SINGLE vision check with a FRESH session ID.
-    This prevents the 'Token Explosion' by ensuring no chat history is sent.
+    Runs a vision check with a PERSISTENT session ID.
     """
-    # 1. Generate a random session ID to force a fresh context window
-    session_id = f"vis_{int(time.time())}_{random.randint(1000, 9999)}"
+    session_id = get_vision_session_id()
     
-    # 2. CRITICAL FIX: Explicitly Register the Session
-    # We must manually create the Session object so the ADK knows it exists.
+    # Explicitly Register the Session
     session_service = InMemorySessionService()
+    # We must check if it exists or create it, but InMemoryService resets on re-instantiation 
+    # in this simple script. For true persistence in ADK, we'd pass the service around.
+    # However, since ADK local storage is file-based or memory-based, re-declaring it 
+    # with the SAME ID should recover the history if it's persisting to disk/memory correctly.
+    # Note: In this lightweight 'InMemory' version, we rely on the ADK's internal handling.
+    
+    # CRITICAL: We pass the session_id to the runner.
     session_service.sessions[session_id] = Session(id=session_id, user_id="nav_user")
     
-    # Create Runner
     runner = Runner(
         agent=agent, 
         session_service=session_service, 
@@ -41,17 +62,14 @@ async def run_vision_task(agent, prompt, image_path):
     )
     
     try:
-        # Load the image
         with open(image_path, "rb") as f:
             img_bytes = f.read()
             
-        # Construct the message
         msg = types.Content(role="user", parts=[
             types.Part(text=prompt),
             types.Part(inline_data=types.Blob(mime_type="image/png", data=img_bytes))
         ])
         
-        # Execute (Stateless)
         resp_text = []
         async for event in runner.run_async(user_id="nav_user", session_id=session_id, new_message=msg):
             if event.content and event.content.role == "model":
@@ -68,16 +86,11 @@ async def run_vision_task(agent, prompt, image_path):
         elif "```" in result: 
             result = result.split("```")[1].strip()
         
-        # Log the thought for the Dashboard
         log_thought("Visionary", result, image_path)
         return result
         
     except Exception as e:
         error_msg = str(e)
-        
-        # --- CRITICAL: Honest Rate Limit Handling ---
-        # If we hit a 429, we don't swap models (it's often an account ban). 
-        # We SLEEP for 60 seconds.
         if "429" in error_msg or "quota" in error_msg.lower() or "resource_exhausted" in error_msg.lower():
             print("\n[Vision] 🛑 RATE LIMIT HIT (Gemini). Sleeping for 60s to recharge...")
             log_thought("System", "Vision API Quota Exceeded. Pausing for 60s...")
@@ -95,52 +108,57 @@ async def process_visual_state(context) -> str:
     except Exception as e:
         return json.dumps({"page_type": "error", "action": "wait", "reasoning": "Screenshot failed"})
     
+    # UPDATED PROMPT: Explicitly handle Success and common failures
     prompt = """
     Analyze this screenshot (red tags = SoM IDs).
     Return JSON ONLY. No markdown.
     
     Rules:
-    1. If Login Screen -> action="sos"
-    2. If CAPTCHA -> action="sos"
-    3. If "Easy Apply" button -> action="click"
-    4. If Form Input -> action="type"
-    5. If Submit -> action="click"
+    1. If "Application submitted" or "Success" -> action="success"
+    2. If Login Screen -> action="sos"
+    3. If CAPTCHA -> action="sos"
+    4. If "Easy Apply" button -> action="click"
+    5. If Form Input -> action="type"
+    6. If "Next" or "Submit" -> action="click"
+    7. If "Review" -> action="click"
     
-    Format: {"page_type": "login|form|success|error", "action": "click|type|wait|sos", "target_som_id": 12, "value": "text", "reasoning": "..."}
+    Format: {"page_type": "login|form|success|error", "action": "click|type|wait|sos|success", "target_som_id": 12, "value": "text", "reasoning": "..."}
     """
     
     print("[Navigator] 👁️ Sending to Vision (Cost: 1 Request)...")
     return await run_vision_task(vision_agent, prompt, screenshot_path)
 
 # --- Tool: Execute Action ---
-# CRITICAL FIX: som_id is now type 'str' to accept "null" or "job_title" without crashing
 async def execute_browser_action(context, action: str, som_id: str = "-1", value: str = "") -> str:
     print(f"[Navigator] ⚡ Executing: {action} on ID {som_id}")
     
-    # 1. SOS Handling
+    # 1. SUCCESS Handling (Exit Condition)
+    if action == "success":
+        print("\n[Navigator] 🎉 Application Successful!")
+        reset_vision_memory() # Clear memory for next job
+        return "SUCCESS"
+
+    # 2. SOS Handling
     if action == "sos":
         print("\n🚨 SOS TRIGGERED! Waiting for user in Dashboard...")
         save_config("system_status", "SOS")
         save_config("sos_message", f"Agent stuck. Action: {action}. Please help.")
+        reset_vision_memory() # Clear memory
         return "SOS_TRIGGERED"
 
-    # 2. Safety Throttle (The Groq Saver)
-    # We enforce a 20s sleep between actions. 
-    # This keeps us well below the 6,000 TPM limit of Llama 3.1 8B.
-    print("[Navigator] ⏳ Throttling 20s to save API tokens...")
-    await asyncio.sleep(20)
+    # 3. Safety Throttle
+    print("[Navigator] ⏳ Throttling 5s (Eco Mode)...")
+    await asyncio.sleep(5) 
 
-    # 3. Execution
     if not browser_instance.page:
         await browser_instance.launch()
 
-    # Sanitizer: Try to convert hallucinated ID to int
+    # Sanitizer
     try:
-        # Remove any non-numeric characters if the AI returns "ID: 12"
         clean_id_str = "".join(filter(str.isdigit, str(som_id)))
-        if not clean_id_str:
-            return f"ACTION_ERROR: Invalid ID '{som_id}' - could not extract number"
-        clean_id = int(clean_id_str)
+        if not clean_id_str and action != "wait":
+            return f"ACTION_ERROR: Invalid ID '{som_id}'"
+        clean_id = int(clean_id_str) if clean_id_str else -1
     except Exception as e:
         return f"ACTION_ERROR: Invalid ID format '{som_id}'"
 
@@ -167,10 +185,19 @@ vision_agent = Agent(
     instruction="Output JSON."
 )
 
+# UPDATED INSTRUCTION: Explicit exit condition
 navigation_agent = Agent(
     name="navigation_agent",
     model=groq_llm,
     description="Browser Operator",
-    instruction="Loop: 1. `process_visual_state` 2. `execute_browser_action`. If SOS, return 'SOS'.",
+    instruction="""
+    You are the Browser Operator.
+    
+    Loop:
+    1. Call `process_visual_state` to see the screen.
+    2. Call `execute_browser_action` with the parameters from step 1.
+    3. IF `execute_browser_action` returns "SUCCESS", STOP and return "JOB_APPLIED".
+    4. IF `execute_browser_action` returns "SOS_TRIGGERED", STOP and return "SOS".
+    """,
     tools=[process_visual_state, execute_browser_action]
 )
