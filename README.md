@@ -24,7 +24,7 @@ It employs a **"Squad" of AI Agents**—powered by **Llama 4 Scout (via Groq)** 
 
 > **"It doesn't just click buttons. It sees the screen, thinks about the form, and types like a human."**
 
-## ✨ Key Features (SEO Optimized)
+## ✨ Key Features
 
 * **🕵️‍♂️ True Stealth Mode**: Uses **Playwright Stealth** with biometric typing patterns (variable latency, micro-hesitations) and Bezier-curve mouse movements to bypass anti-bot detection.
 * **👁️ Multimodal Vision (SoM)**: Integrates **Gemini Vision** with "Set-of-Mark" tagging to visually understand web pages, effectively solving "dynamic UI" problems that break traditional scrapers.
