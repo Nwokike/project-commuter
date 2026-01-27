@@ -18,7 +18,7 @@
 
 ## 🚀 What is Project Commuter?
 
-**Project Commuter** is an intelligent, autonomous agent that navigates the modern job market for you. Unlike cloud-based "spam bots" that get banned instantly, Commuter runs **locally on your machine**, using your own browser profile to apply for jobs with human-like precision.
+**Project Commuter** is an intelligent, autonomous agent that navigates the modern job market for you. Unlike cloud-based "spam bots" that get banned instantly, Commuter runs **locally on your machine**, using a dedicated, persistent browser profile to apply for jobs with human-like precision.
 
 It employs a **"Squad" of AI Agents**—powered by **Llama 4 Scout (via Groq)** and **Gemini 2.5 Flash**—to find listings, analyze UI visual states, solve navigation challenges, and tailor your CV to every single application.
 
@@ -26,11 +26,11 @@ It employs a **"Squad" of AI Agents**—powered by **Llama 4 Scout (via Groq)** 
 
 ## ✨ Key Features
 
-* **🕵️‍♂️ True Stealth Mode**: Uses **Playwright Stealth** with biometric typing patterns (variable latency, micro-hesitations) and Bezier-curve mouse movements to bypass anti-bot detection.
+* **🕵️‍♂️ True Stealth Mode**: Uses **Persistent Identity** technology. Instead of cloning profiles (which causes file locks), the bot maintains a dedicated, encrypted Chrome profile (`data/chrome_bot_profile`) that preserves your login session safely.
+* **🧠 Conversational Core**: A new Chat-based UI allows you to interrupt, redirect, or pause the agent using natural language commands (e.g., *"Stop applying and switch to Java jobs"*).
 * **👁️ Multimodal Vision (SoM)**: Integrates **Gemini Vision** with "Set-of-Mark" tagging to visually understand web pages, effectively solving "dynamic UI" problems that break traditional scrapers.
-* **🧠 Local RAG Brain**: Stores your CV and GitHub history in **SQLite/ChromaDB**. It doesn't hallucinate skills; it cites your actual experience when answering application questions.
-* **🛡️ Cost-Optimized Swarm**: Implements a "Waterfall" model strategy (Flash → Flash Lite → Llama 4) to run 24/7 purely on **Free Tier** API limits (20 RPD / 500k TPD).
-* **📡 Neural Feed Dashboard**: A **Streamlit** command center that visualizes the agent's internal monologue and decision-making process in real-time.
+* **🛡️ Cost-Optimized Swarm**: Implements a "Waterfall" model strategy to run 24/7 purely on **Free Tier** API limits.
+* **📡 Neural Feed**: A real-time command center that visualizes the agent's internal monologue and decision-making process.
 * **🆘 Human-in-the-Loop**: The **SOS Protocol** detects CAPTCHAs or complex logic hurdles and pauses for your input, ensuring 0% account ban rate.
 
 ## 🛠️ The Stack
@@ -41,8 +41,8 @@ It employs a **"Squad" of AI Agents**—powered by **Llama 4 Scout (via Groq)** 
 | **Logic Engine** | **Groq** (Llama 3.1 8B / 4 Scout) | Complex reasoning & JSON parsing |
 | **Vision Engine** | **Gemini 2.5 Flash** | UI Analysis & Screenshot processing |
 | **Automation** | **Playwright** (Async) | Browser control & fingerprint spoofing |
-| **Memory** | **SQLite** | Local storage for CV & past answers |
-| **UI** | **Streamlit** | Mission Control Dashboard |
+| **Memory** | **SQLite (WAL Mode)** | Local storage for CV & past answers |
+| **UI** | **Streamlit** | Chat-based Command Center |
 
 ## ⚡ Quick Start
 
@@ -55,7 +55,7 @@ It employs a **"Squad" of AI Agents**—powered by **Llama 4 Scout (via Groq)** 
 
 1.  **Clone the Repository**
     ```bash
-    git clone https://github.com/Nwokike/project-commuter.git
+    git clone [https://github.com/Nwokike/project-commuter.git](https://github.com/Nwokike/project-commuter.git)
     cd project-commuter
     ```
 
@@ -76,33 +76,24 @@ It employs a **"Squad" of AI Agents**—powered by **Llama 4 Scout (via Groq)** 
     ```bash
     python "python launcher.py"
     ```
+    *Note: On the first run, a Chrome window will open. You MUST log in to LinkedIn manually in this window. The bot will save your session for future runs.*
 
 ## 🎮 Mission Control
 
 Once launched, the bot will automatically open the dashboard in your browser (`http://localhost:8501`).
 
-* **Step 1:** Go to the **Mission Control** tab.
-* **Step 2:** Upload your **CV (PDF)**.
-* **Step 3:** Enter your target **Job Title** (e.g., "Remote Python Engineer").
-* **Step 4:** Click **"Save Configuration & Open Gate"**.
-
-The bot will then initiate the **Scout Squad** to find jobs and the **Navigator Squad** to apply.
+* **Step 1:** Go to the **Mission Control** sidebar and upload your **CV (PDF)**.
+* **Step 2:** In the main Chat Interface, type a command to start:
+  * `"Find Remote Python Jobs"`
+  * `"Start"`
+* **Step 3:** Watch the **Neural Feed**. You will see the bot dispatch the Scout, process the feed, and begin applying.
+* **Interruption:** Need to change plans? Just type `"Stop"` or `"Search for DevOps instead"` at any time.
 
 ## 🏗️ Architecture
 
 Project Commuter isn't a script; it's a **Multi-Agent System**.
 See [ARCHITECTURE.md](ARCHITECTURE.md) for a deep dive into the **Scout**, **Vision**, **Brain**, and **Ops** squads.
 
-## 🤝 Contributing
-
-We are building the future of autonomous personal agents. 
-See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
-
 ## ⚠️ Disclaimer
 
 *This tool is strictly for educational and research purposes. Please respect the Terms of Service of any platform you interact with. The authors are not responsible for account suspensions or misuse.*
-
----
-<div align="center">
-    <b>Star this repo 🌟 if you want to hire an AI to get hired!</b>
-</div>
