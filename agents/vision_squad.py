@@ -5,7 +5,7 @@ import time
 import random
 from google.adk.agents import Agent
 from google.adk import Runner
-from google.adk.sessions import InMemorySessionService
+from google.adk.sessions import InMemorySessionService, Session
 from google.genai import types
 
 from modules.llm_bridge import GroqModel, GeminiFallbackClient
@@ -25,11 +25,13 @@ async def run_vision_task(agent, prompt, image_path):
     Runs a SINGLE vision check with a FRESH session ID.
     This prevents the 'Token Explosion' by ensuring no chat history is sent.
     """
-    # Generate a random session ID to force a fresh context window
+    # 1. Generate a random session ID to force a fresh context window
     session_id = f"vis_{int(time.time())}_{random.randint(1000, 9999)}"
     
-    # Create a fresh session service
+    # 2. CRITICAL FIX: Explicitly Register the Session
+    # We must manually create the Session object so the ADK knows it exists.
     session_service = InMemorySessionService()
+    session_service.sessions[session_id] = Session(id=session_id, user_id="nav_user")
     
     # Create Runner
     runner = Runner(
@@ -111,7 +113,8 @@ async def process_visual_state(context) -> str:
     return await run_vision_task(vision_agent, prompt, screenshot_path)
 
 # --- Tool: Execute Action ---
-async def execute_browser_action(context, action: str, som_id: int = -1, value: str = "") -> str:
+# CRITICAL FIX: som_id is now type 'str' to accept "null" or "job_title" without crashing
+async def execute_browser_action(context, action: str, som_id: str = "-1", value: str = "") -> str:
     print(f"[Navigator] ⚡ Executing: {action} on ID {som_id}")
     
     # 1. SOS Handling
@@ -131,7 +134,17 @@ async def execute_browser_action(context, action: str, som_id: int = -1, value: 
     if not browser_instance.page:
         await browser_instance.launch()
 
-    selector = f"[data-som-id='{som_id}']"
+    # Sanitizer: Try to convert hallucinated ID to int
+    try:
+        # Remove any non-numeric characters if the AI returns "ID: 12"
+        clean_id_str = "".join(filter(str.isdigit, str(som_id)))
+        if not clean_id_str:
+            return f"ACTION_ERROR: Invalid ID '{som_id}' - could not extract number"
+        clean_id = int(clean_id_str)
+    except Exception as e:
+        return f"ACTION_ERROR: Invalid ID format '{som_id}'"
+
+    selector = f"[data-som-id='{clean_id}']"
     try:
         if action == "click":
             await browser_instance.human_click(selector)
