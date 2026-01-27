@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 
 from google.adk import Runner
+from google.genai import types
 from agents.orchestrator import orchestrator_agent
 from modules.db import init_db
 
@@ -17,7 +18,8 @@ async def main():
     
     # 2. Setup ADK Runner
     # The Runner manages the event loop and agent execution.
-    runner = Runner(agent=orchestrator_agent)
+    from google.adk.sessions import InMemorySessionService
+    runner = Runner(agent=orchestrator_agent, session_service=InMemorySessionService(), app_name="ProjectCommuter")
 
     print("[System] Orchestrator is online. Waiting for instructions...")
     
@@ -25,7 +27,8 @@ async def main():
     initial_prompt = "Check the system status and decide what to do next."
     
     # Runner.run usually takes user_id and session_id as well
-    for event in runner.run(user_id="local_user", session_id="session_1", new_message=initial_prompt):
+    content = types.Content(role="user", parts=[types.Part(text=initial_prompt)])
+    for event in runner.run(user_id="local_user", session_id="session_1", new_message=content):
         # Handle events (Simplified for compatibility)
         print(f"[{event.type}]: {event}")
 
