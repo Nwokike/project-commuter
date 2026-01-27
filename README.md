@@ -95,7 +95,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for a deep dive into the **Scout**, **Vis
 
 ## 🤝 Contributing
 
-We are building the future of autonomous personal agents. Whether you're a prompt engineer, a Python wizard, or a UI designer, we want your help!
+We are building the future of autonomous personal agents. 
 See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 ## ⚠️ Disclaimer
