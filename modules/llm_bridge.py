@@ -1,10 +1,12 @@
 import os
 import time
-from functools import wraps
+import asyncio
 from dotenv import load_dotenv
 
+# Import ADK components
 from google.adk.models.lite_llm import LiteLlm
-from google import genai
+from google.adk.models import Gemini
+from google.genai import types
 
 # Load environment variables
 load_dotenv()
@@ -17,37 +19,10 @@ if not GROQ_API_KEY:
 if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in .env")
 
-# Initialize GenAI Client
-client = genai.Client(api_key=GEMINI_API_KEY)
-
-
-def rate_limit(rpm):
-    """
-    Decorator to enforce a strict Request Per Minute (RPM) limit.
-    """
-    interval = 60.0 / rpm
-    last_call = 0
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            nonlocal last_call
-            elapsed = time.time() - last_call
-            if elapsed < interval:
-                sleep_time = interval - elapsed
-                print(f"[RateLimit] Sleeping for {sleep_time:.2f}s to respect {rpm} RPM...")
-                time.sleep(sleep_time)
-            result = func(*args, **kwargs)
-            last_call = time.time()
-            return result
-        return wrapper
-    return decorator
-
-
 class GroqModel:
     """
     Wrapper for Groq via LiteLLM.
-    Used for all TEXT-based logic agents (Scout, Decision, Context, etc.).
+    Used for high-volume text logic (Scout, Orchestrator).
     """
     def __init__(self, model_name="groq/llama-3.3-70b-versatile"):
         self.model = LiteLlm(
@@ -58,26 +33,62 @@ class GroqModel:
     def get_model(self):
         return self.model
 
-
-class GeminiVisionModel:
+class GeminiFallbackClient:
     """
-    Wrapper for Gemini Vision. Enforces strict 5 RPM limit for 2026 Free Tier.
+    A smart wrapper that manages a pool of Gemini models.
+    Implements the 'Waterfall' fallback strategy to maximize Free Tier limits.
     """
-    def __init__(self, model_name="gemini-3-flash"):
-        self.model_name = model_name
+    def __init__(self):
+        # Priority Order:
+        # 1. Flash 2.5 (Standard, 20 RPD)
+        # 2. Flash Lite (Backup, 10 RPD)
+        # 3. Flash 3.0 (High Intelligence, 20 RPD - Last Resort)
+        self.model_names = [
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-3-flash"
+        ]
+        
+        # Initialize ADK wrappers for each
+        self.clients = [Gemini(model=name) for name in self.model_names]
+        self.name = "GeminiFallbackSwarm"
 
-    @rate_limit(rpm=4)
-    def analyze_image(self, image_path, prompt):
-        """Analyzes an image file with a prompt using google-genai Client."""
-        print(f"[GeminiVision] Analyzing {image_path}...")
-        try:
-            import PIL.Image
-            img = PIL.Image.open(image_path)
-            response = client.models.generate_content(
-                model=self.model_name,
-                contents=[prompt, img]
-            )
-            return response.text
-        except Exception as e:
-            print(f"[GeminiVision] Error: {e}")
-            return None
+    async def generate_content_async(self, contents, **kwargs):
+        """
+        Attempts to generate content using the model pool.
+        If one fails (429/404/500), it tries the next.
+        """
+        last_error = None
+        
+        for i, client in enumerate(self.clients):
+            model_name = self.model_names[i]
+            try:
+                # print(f"[Bridge] ⚡ Attempting generation with {model_name}...")
+                
+                # ADK Runner passes 'contents' and kwargs. We forward them.
+                async for chunk in client.generate_content_async(contents, **kwargs):
+                    yield chunk
+                
+                # If we finish the loop without error, we are done.
+                return
+
+            except Exception as e:
+                error_str = str(e)
+                # Check for rate limits or not found errors
+                if "429" in error_str or "Rate limit" in error_str or "404" in error_str:
+                    print(f"[Bridge] ⚠️ {model_name} exhausted or unavailable. Switching to next...")
+                    last_error = e
+                    continue # Try next model
+                else:
+                    # If it's a real error (like bad request), maybe we shouldn't retry?
+                    # For stability, we try anyway unless it's the last one.
+                    print(f"[Bridge] ❌ {model_name} Error: {e}")
+                    last_error = e
+
+        # If all failed
+        print("[Bridge] 💥 All Gemini models exhausted.")
+        raise last_error
+
+    # Support synchronous call just in case (though ADK v2 prefers async)
+    def generate_content(self, contents, **kwargs):
+        raise NotImplementedError("Use generate_content_async for the Fallback Client")

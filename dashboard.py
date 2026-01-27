@@ -3,121 +3,129 @@ import sqlite3
 import pandas as pd
 import os
 import time
-import hashlib
-
-# Ensure we point to the correct DB path relative to execution
-DB_PATH = os.path.join(os.path.dirname(__file__), "data", "bot_memory.db")
-SCREENSHOT_PATH = "latest_view.png"
-
-def get_con():
-    # Helper to connect to DB
-    return sqlite3.connect(DB_PATH)
+import json
+from modules.db import get_connection, save_config, get_config
+# We import ingest_cv dynamically or assume it's available via path
+# For simplicity in this phase, we'll implement a lightweight ingest helper here 
+# to avoid complex import paths until the next phase refactor.
+import pdfplumber
 
 st.set_page_config(page_title="Project Commuter", layout="wide", page_icon="🐜")
 
-st.title("🐜 Project Commuter: Flight Deck")
-
-# --- Metric Bar ---
-conn = get_con()
-try:
-    # Quick sanity checks for table existence
-    queue_count = pd.read_sql("SELECT COUNT(*) FROM job_queue WHERE status='PENDING'", conn).iloc[0,0]
-    applied_count = pd.read_sql("SELECT COUNT(*) FROM job_queue WHERE status='APPLIED'", conn).iloc[0,0]
-    # Check for active SOS events (last 5 minutes)
-    sos_events = pd.read_sql("SELECT * FROM application_logs WHERE action='SOS_TRIGGERED' ORDER BY timestamp DESC LIMIT 1", conn)
-except Exception as e:
-    queue_count = 0
-    applied_count = 0
-    sos_events = pd.DataFrame()
-conn.close()
-
-col1, col2, col3 = st.columns(3)
-col1.metric("Pending Jobs", queue_count)
-col2.metric("Applied", applied_count)
-
-sos_active = False
-latest_sos_q = ""
-latest_sos_hash = ""
-
-if not sos_events.empty:
-    last_event = sos_events.iloc[0]
-    # Parse "HASH::Question Text"
+# --- Helper Functions ---
+def load_cv_text(uploaded_file):
+    """Extracts text from the uploaded PDF."""
     try:
-        details = last_event['details']
-        latest_sos_hash, latest_sos_q = details.split("::", 1)
-        col3.metric("SOS Status", "ACTIVE 🚨", delta_color="inverse")
-        sos_active = True
-    except:
-        col3.metric("SOS Status", "Standby 🟢")
-else:
-    col3.metric("SOS Status", "Standby 🟢")
+        with pdfplumber.open(uploaded_file) as pdf:
+            text = ""
+            for page in pdf.pages:
+                text += page.extract_text() + "\n"
+        return text.strip()
+    except Exception as e:
+        return f"Error reading PDF: {e}"
+
+# --- Header ---
+st.title("🐜 Project Commuter: Command Center")
 
 # --- Tabs ---
-tab1, tab2 = st.tabs(["🔴 Live Mission", "🆘 SOS Resolution Center"])
+tab1, tab2 = st.tabs(["🎛️ Mission Control", "🧠 Neural Feed"])
 
+# ==============================================================================
+# TAB 1: MISSION CONTROL (Configuration)
+# ==============================================================================
 with tab1:
-    st.subheader("Bot's Eye View")
-    if os.path.exists(SCREENSHOT_PATH):
-        # Auto-refreshing image mechanism could be added, for now static load
-        st.image(SCREENSHOT_PATH, caption=f"Snapshot at {time.ctime(os.path.getmtime(SCREENSHOT_PATH))}", use_container_width=True)
-    else:
-        st.info("No screenshot available. Bot might be sleeping or scouting.")
+    st.header("Job Search Parameters")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Load existing config if available
+        current_query = get_config("search_query") or "Software Engineer Remote"
+        current_location = get_config("job_location") or "United States"
+        
+        new_query = st.text_input("Job Search Query", value=current_query)
+        new_location = st.text_input("Location / Region", value=current_location)
+        
+        browser_mode = st.radio("Browser Mode", ["Headless (Invisible)", "Headed (Visible)"], index=1)
+        
+    with col2:
+        st.subheader("Context Injection")
+        uploaded_cv = st.file_uploader("Upload your CV (PDF)", type=["pdf"])
+        
+        if uploaded_cv:
+            if st.button("📄 Process & Ingest CV"):
+                with st.spinner("Extracting text from CV..."):
+                    cv_text = load_cv_text(uploaded_cv)
+                    if len(cv_text) > 50:
+                        save_config("cv_text", cv_text)
+                        st.success(f"CV Ingested! ({len(cv_text)} characters)")
+                        with st.expander("View Extracted Text"):
+                            st.text(cv_text[:1000] + "...")
+                    else:
+                        st.error("Could not extract text. Is the PDF scanned?")
 
-    st.subheader("Mission Logs")
-    conn = get_con()
+    # Save Button
+    if st.button("💾 Save Mission Configuration", type="primary"):
+        save_config("search_query", new_query)
+        save_config("job_location", new_location)
+        save_config("headless_mode", "true" if "Headless" in browser_mode else "false")
+        st.toast("Configuration Saved!", icon="✅")
+
+# ==============================================================================
+# TAB 2: NEURAL FEED (Live Agent Thoughts)
+# ==============================================================================
+with tab2:
+    st.header("Live Agent Telemetry")
+    
+    # Auto-refresh mechanism
+    if st.toggle("Auto-Refresh Feed", value=True):
+        time.sleep(2)
+        st.rerun()
+        
+    conn = get_connection()
     try:
-        logs = pd.read_sql("SELECT timestamp, action, details FROM application_logs ORDER BY timestamp DESC LIMIT 10", conn)
-        st.dataframe(logs, use_container_width=True)
+        # Fetch latest thoughts
+        thoughts = pd.read_sql(
+            "SELECT * FROM agent_thoughts ORDER BY timestamp DESC LIMIT 10", 
+            conn
+        )
     except:
-        st.write("No logs yet.")
+        thoughts = pd.DataFrame()
     conn.close()
 
-with tab2:
-    st.header("Human Intervention Required")
-    
-    if sos_active:
-        st.error(f"The Bot is STUCK on this question:")
-        st.markdown(f"### ❓ `{latest_sos_q}`")
-        
-        with st.form("sos_response_form"):
-            user_answer = st.text_input("Type the answer the bot should use:", placeholder="e.g., 5 years, Yes, No...")
-            submitted = st.form_submit_button("🚀 Send Answer & Resume Bot")
-            
-            if submitted and user_answer:
-                conn = get_con()
-                cursor = conn.cursor()
-                try:
-                    # Save to Answer Bank with the EXACT hash the bot is polling for
-                    cursor.execute(
-                        "INSERT OR REPLACE INTO answer_bank (question_hash, question_text, answer_text, source, created_at) VALUES (?, ?, ?, 'USER_OVERRIDE', CURRENT_TIMESTAMP)", 
-                        (latest_sos_hash, latest_sos_q, user_answer)
-                    )
-                    conn.commit()
-                    st.success("Answer sent! The bot should pick it up in < 2 seconds.")
-                    time.sleep(1)
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Database Error: {e}")
-                finally:
-                    conn.close()
+    if not thoughts.empty:
+        for index, row in thoughts.iterrows():
+            with st.container(border=True):
+                # Header: Agent Name & Time
+                c1, c2 = st.columns([1, 4])
+                with c1:
+                    st.caption(row['timestamp'])
+                    st.markdown(f"**🤖 {row['agent_name']}**")
+                
+                with c2:
+                    # Content Parsing
+                    content = row['thought_content']
+                    
+                    # Try to parse JSON for pretty printing
+                    try:
+                        json_content = json.loads(content)
+                        
+                        # Special formatting for Visionary decisions
+                        if "page_type" in json_content:
+                            color = "green" if json_content['page_type'] == 'success' else "blue"
+                            st.markdown(f":{color}[**Decision:** {json_content.get('action', 'unknown').upper()}]")
+                            st.write(f"Reasoning: {json_content.get('reasoning', 'No reasoning provided.')}")
+                            st.json(json_content, expanded=False)
+                        else:
+                            st.code(content, language="json")
+                            
+                    except:
+                        # Fallback for plain text thoughts
+                        st.write(content)
+                        
+                    # Show Image if available
+                    if row['visual_context_path'] and os.path.exists(row['visual_context_path']):
+                        with st.expander("View Visual Context"):
+                            st.image(row['visual_context_path'])
     else:
-        st.success("No active SOS alerts. The bot is running autonomously.")
-        st.write("You can still manually add answers to the bank below to train it for the future.")
-        
-        # Manual Training Interface
-        with st.expander("➕ Add Training Data Manually"):
-            t_q = st.text_input("Question Text")
-            t_a = st.text_input("Answer")
-            if st.button("Add to Brain"):
-                if t_q and t_a:
-                    h = hashlib.md5(t_q.encode()).hexdigest()
-                    c = get_con()
-                    c.execute("INSERT OR REPLACE INTO answer_bank (question_hash, question_text, answer_text, source) VALUES (?, ?, ?, 'USER_OVERRIDE')", (h, t_q, t_a))
-                    c.commit()
-                    c.close()
-                    st.success("Added.")
-
-# Auto-refresh for polling UI (Basic implementation)
-if sos_active:
-    time.sleep(2)
-    st.rerun()
+        st.info("No agent activity recorded yet. Start the bot to see thoughts here.")

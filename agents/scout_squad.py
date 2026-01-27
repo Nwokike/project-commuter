@@ -4,24 +4,25 @@ import json
 from google.adk.agents import Agent
 from google.adk.models import Gemini
 
+from modules.llm_bridge import GroqModel, GeminiFallbackClient
+from modules.db import get_connection
+
+# Initialize Models
+groq_llm = GroqModel(model_name="groq/llama-3.3-70b-versatile").get_model()
+
+# UPDATED: Use Fallback Client
+gemini_fallback = GeminiFallbackClient()
+
+# --- Tools (Custom) ---
+
 def google_search(query: str) -> str:
     """Mock Google Search for environment compatibility."""
     print(f"[MockSearch] Searching for: {query}")
     return "No scam reports found for this company in mock mode."
 
-from modules.llm_bridge import GroqModel
-from modules.db import get_connection
-
-# Initialize Models
-groq_llm = GroqModel(model_name="groq/llama-3.3-70b-versatile").get_model()
-gemini_flash = Gemini(model="gemini-2.5-flash-preview")
-
-# --- Tools (Custom) ---
-
 def check_db_exists(job_url: str) -> str:
     """
     Checks if a job URL already exists in the database. 
-    Returns "EXISTS" or "NEW".
     """
     job_hash = hashlib.md5(job_url.encode()).hexdigest()
     conn = get_connection()
@@ -52,7 +53,7 @@ def add_to_queue(url: str, company: str, title: str) -> str:
 
 # --- Agents ---
 
-# 1. Job Search Agent (Type A - Text Generation)
+# 1. Job Search Agent
 job_search_agent = Agent(
     name="job_search_agent",
     model=groq_llm,
@@ -60,7 +61,7 @@ job_search_agent = Agent(
     instruction="Given user criteria (e.g., 'Django London'), generate a valid LinkedIn Jobs search URL. Return ONLY the URL string."
 )
 
-# 2. Listing Parser Agent (Type A - Text Extraction)
+# 2. Listing Parser Agent
 listing_parser_agent = Agent(
     name="listing_parser_agent",
     model=groq_llm,
@@ -68,7 +69,7 @@ listing_parser_agent = Agent(
     instruction="Extract Job Title, Company, URL, and Easy Apply status from the provided HTML snippet. Return strictly valid JSON."
 )
 
-# 3. Duplicate Check Agent (Type B - Custom Tool)
+# 3. Duplicate Check Agent
 duplicate_check_agent = Agent(
     name="duplicate_check_agent",
     model=groq_llm,
@@ -77,11 +78,11 @@ duplicate_check_agent = Agent(
     tools=[check_db_exists]
 )
 
-# 4. Skeptic Agent (Type A - Inbuilt Tool)
-# UPDATED: Switched to Gemini Flash to use the native google_search tool correctly.
+# 4. Skeptic Agent
+# UPDATED: Switched to Gemini Fallback
 skeptic_agent = Agent(
     name="skeptic_agent",
-    model=gemini_flash,
+    model=gemini_fallback,
     description="Checks for scam reports using Google Search.",
     instruction="""
     You are the Skeptic. Your job is to verify if a company is legitimate.

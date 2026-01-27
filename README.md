@@ -1,60 +1,104 @@
+<div align="center">
+
 # 🐜 Project Commuter
+### The Local-First Autonomous Job Agent
+**Stop Applying. Start Interviewing.**
 
-An autonomous, local-first job application agent built with Google ADK, Playwright, and multimodal LLMs. Designed for high fidelity, stealth, and human-in-the-loop reliability.
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-BSD_3--Clause-green.svg)](LICENSE)
+[![Powered By](https://img.shields.io/badge/AI-Groq_%7C_Gemini-purple)](https://groq.com)
+[![Stealth](https://img.shields.io/badge/Stealth-Playwright-orange)](https://playwright.dev)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-## 🚀 Key Features
+[Features](#-key-features) • [Installation](#-quick-start) • [Architecture](#-architecture) • [Dashboard](#-mission-control)
 
-- **Local-First Architecture**: Runs on your residents IP to maximize trust scores and avoid cloud-bot detection.
-- **Stealth Browser Engine**: Uses Playwright with biometric typing, bezier-curve mouse movements, and profile cloning to mimic human behavior.
-- **Set-of-Mark (SoM) Vision**: Intelligent UI analysis using Gemini Vision to identify interactive elements via visual tags.
-- **Semantic Memory**: Persistent SQLite and ChromaDB storage for CV context and previous application answers.
-- **Human-in-the-Loop (SOS)**: Automatically pauses and alerts the user via a Streamlit dashboard when encountering complex questions or CAPTCHAs.
+</div>
 
-## 🛠️ Technology Stack
+---
 
-- **Orchestration**: Google ADK (Agent Development Kit)
-- **Intelligence**: Groq (Llama 3.3 70B) & Gemini 2.5 Flash
-- **Automation**: Playwright (Stealth Mode)
-- **Storage**: SQLite & ChromaDB
-- **Interface**: Streamlit
+## 🚀 What is Project Commuter?
 
-## 📦 Installation
+**Project Commuter** is an intelligent, autonomous agent that navigates the modern job market for you. unlike cloud-based "spam bots" that get banned instantly, Commuter runs **locally on your machine**, using your own browser profile to apply for jobs with human-like precision.
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/Nwokike/project-commuter.git
-   cd project-commuter
-   ```
+It employs a **"Squad" of AI Agents**—powered by **Llama 3.3 (via Groq)** and **Gemini 2.5 Flash**—to find listings, analyze UI visual states, solve navigation challenges, and tailor your CV to every single application.
 
-2. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   playwright install chrome
-   ```
+> **"It doesn't just click buttons. It sees the screen, thinks about the form, and types like a human."**
 
-3. **Configure Environment**:
-   Create a `.env` file with your API keys:
-   ```env
-   GROQ_API_KEY=your_groq_key
-   GEMINI_API_KEY=your_gemini_key
-   ```
+## ✨ Key Features
 
-## 🚦 Usage
+* **🕵️‍♂️ True Stealth Mode**: Uses **Playwright Stealth** with biometric typing patterns (variable latency, micro-hesitations) and Bezier-curve mouse movements to bypass anti-bot detection.
+* **👁️ Multimodal Vision (SoM)**: Integrates **Gemini Vision** with "Set-of-Mark" tagging to visually understand web pages, effectively solving "dynamic UI" problems that break traditional scrapers.
+* **🧠 Local RAG Brain**: Stores your CV and GitHub history in **ChromaDB**. It doesn't hallucinate skills; it cites your actual experience when answering application questions.
+* **🛡️ Cost-Optimized Swarm**: Implements a "Waterfall" model strategy (Flash → Flash Lite → Llama 3) to run 24/7 purely on **Free Tier** API limits.
+* **📡 Neural Feed Dashboard**: A **Streamlit** command center that visualizes the agent's internal monologue and decision-making process in real-time.
+* **🆘 Human-in-the-Loop**: The **SOS Protocol** detects CAPTCHAs or complex logic hurdles and pauses for your input, ensuring 0% account ban rate.
 
-Launch the unified system (Dashboard + Bot):
-```bash
-python "python launcher.py"
-```
+## 🛠️ The Stack
 
-The dashboard will be available at `http://localhost:8501`.
+| Component | Technology | Role |
+| :--- | :--- | :--- |
+| **Orchestration** | **Google ADK** (Agent Dev Kit) | Managing the agent state machine |
+| **Logic Engine** | **Groq** (Llama 3.3 70B) | Complex reasoning & JSON parsing |
+| **Vision Engine** | **Gemini 2.5 Flash** | UI Analysis & Screenshot processing |
+| **Automation** | **Playwright** (Async) | Browser control & fingerprint spoofing |
+| **Memory** | **SQLite** & **ChromaDB** | Vector storage for CV & past answers |
+| **UI** | **Streamlit** | Mission Control Dashboard |
+
+## ⚡ Quick Start
+
+### Prerequisites
+* Python 3.10+
+* Google Chrome installed
+* API Keys for **Groq** and **Google Gemini**
+
+### Installation
+
+1.  **Clone the Repository**
+    ```bash
+    git clone [https://github.com/Nwokike/project-commuter.git](https://github.com/Nwokike/project-commuter.git)
+    cd project-commuter
+    ```
+
+2.  **Install Dependencies**
+    ```bash
+    pip install -r requirements.txt
+    playwright install chrome
+    ```
+
+3.  **Configure Environment**
+    Create a `.env` file in the root directory:
+    ```env
+    GROQ_API_KEY=gsk_...
+    GEMINI_API_KEY=AIza...
+    ```
+
+4.  **Launch the System**
+    ```bash
+    python "python launcher.py"
+    ```
+
+## 🎮 Mission Control
+
+Once launched, access the dashboard at `http://localhost:8501`.
+
+* **Tab 1: Command Center**: Upload your PDF CV, set your target Job Title (e.g., "Remote Python Engineer"), and toggle Headless Mode.
+* **Tab 2: Neural Feed**: Watch the agents "think" in real-time. See the screenshots they analyze and the JSON decisions they make.
 
 ## 🏗️ Architecture
 
-Project Commuter uses a "Squad" pattern to separate concerns:
-- **Scout Squad**: Finds and parses job listings.
-- **Vision Squad**: Analyzes the browser state and executes actions.
-- **Brain Squad**: Provides semantic context and decision arbiter.
-- **Ops Squad**: Handles SOS triggers and human intervention.
+Project Commuter isn't a script; it's a **Multi-Agent System**.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for a deep dive into the **Scout**, **Vision**, **Brain**, and **Ops** squads.
+
+## 🤝 Contributing
+
+We are building the future of autonomous personal agents. Whether you're a prompt engineer, a Python wizard, or a UI designer, we want your help!
+See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+
+## ⚠️ Disclaimer
+
+*This tool is strictly for educational and research purposes. Please respect the Terms of Service of any platform you interact with. The authors are not responsible for account suspensions or misuse.*
 
 ---
-*Disclaimer: This tool is for educational purposes. Use responsibly and adhere to job platform terms of service.*
+<div align="center">
+    <b>Star this repo 🌟 if you want to hire an AI to get hired!</b>
+</div>
