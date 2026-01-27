@@ -13,10 +13,10 @@ from modules.stealth_browser import browser_instance
 load_dotenv()
 
 async def main():
-    print("[System] Initializing Project Commuter v2.1 (Stateless Mode)...")
+    print("[System] Initializing Project Commuter v2.1 (Eco Mode)...")
     init_db()
 
-    # --- Launch Browser & Dashboard ---
+    # --- Launch Browser ---
     print("[System] 🧬 Cloning Chrome Profile & Launching Flight Deck...")
     try:
         if not browser_instance.page:
@@ -33,10 +33,8 @@ async def main():
 
     print("[System] Orchestrator is online. Managing queue...")
     
-    # Infinite Control Loop
     while True:
         try:
-            # 1. Create a FRESH Session Service
             session_service = InMemorySessionService()
             session_id = f"orch_session_{int(time.time())}"
             user_id = "local_user"
@@ -47,18 +45,17 @@ async def main():
             elif hasattr(session_service, "async_create_session"):
                 await session_service.async_create_session(session_id=session_id, user_id=user_id, app_name=app_name)
             
-            # 2. Create Runner
             runner = Runner(
                 agent=orchestrator_agent, 
                 session_service=session_service, 
                 app_name=app_name
             )
 
-            # 3. Pulse
-            # Fetch config dynamically every loop
+            # Pulse
             query = get_config("search_query") or "software engineer"
             
-            pulse_prompt = f"Check status. If queue empty, find '{query}' jobs. If jobs pending, apply. Do ONE thing."
+            # SIMPLIFIED PROMPT to stop hallucinations
+            pulse_prompt = f"1. Check status. 2. If no pending jobs, scout for '{query}'. 3. If pending job exists, apply. DO NOT ARGUE. JUST CALL THE TOOL."
             content = types.Content(role="user", parts=[types.Part(text=pulse_prompt)])
             
             print(f"\n[System] 💓 Pulse (Session: {session_id[-4:]})")
@@ -66,28 +63,27 @@ async def main():
             orchestrator_response = []
             
             async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content):
-                # Capture Orchestrator's text response
                 if event.content and event.content.role == "model":
                     if hasattr(event.content, 'parts'):
                         for part in event.content.parts:
                             if hasattr(part, 'text') and part.text:
                                 orchestrator_response.append(part.text)
 
-            # Log the Orchestrator's high-level thought
             final_thought = "".join(orchestrator_response)
             if final_thought:
                 log_thought("Orchestrator", final_thought)
 
-            # 4. Cooldown
-            print("[System] 💤 Cooling down (5s)...")
-            await asyncio.sleep(5)
+            # INCREASED COOLDOWN: 15s prevents hitting 30 RPM and saves daily tokens
+            print("[System] 💤 Cooling down (15s)...")
+            await asyncio.sleep(15)
 
         except KeyboardInterrupt:
             print("\n[System] Shutdown requested.")
             break
         except Exception as e:
             print(f"[System] ⚠️ Error in main loop: {e}")
-            await asyncio.sleep(5)
+            # Longer sleep on error to let rate limits reset
+            await asyncio.sleep(30)
 
 if __name__ == "__main__":
     asyncio.run(main())
