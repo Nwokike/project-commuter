@@ -8,11 +8,19 @@ from modules.db import get_connection, save_config, get_config
 
 st.set_page_config(page_title="Commuter Mission Control", layout="wide", page_icon="🐜")
 
-# --- CSS: Make buttons full-width and messages distinct ---
+# --- CSS FIX: High Contrast Text & Responsive Buttons ---
 st.markdown("""
     <style>
+    /* Make buttons full width */
     .stButton>button { width: 100%; border-radius: 5px; }
-    .stChatMessage { background-color: #262730; border-radius: 10px; padding: 10px; margin-bottom: 5px; }
+    
+    /* Force chat message text to be white for visibility */
+    .stChatMessage p { color: #FFFFFF !important; }
+    .stChatMessage { background-color: #2e2e2e; border: 1px solid #444; }
+    
+    /* Status banners */
+    .success-box { padding: 10px; background-color: #1b5e20; border-radius: 5px; color: white; }
+    .error-box { padding: 10px; background-color: #b71c1c; border-radius: 5px; color: white; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -21,8 +29,7 @@ def load_cv_text(uploaded_file):
     """Safely extracts text from PDF."""
     try:
         with pdfplumber.open(uploaded_file) as pdf:
-            text = "".join([p.extract_text() or "" for p in pdf.pages])
-        return text.strip()
+            return "".join([p.extract_text() or "" for p in pdf.pages]).strip()
     except Exception as e:
         return ""
 
@@ -31,26 +38,26 @@ def get_status():
     return get_config("system_status") or "IDLE"
 
 def resolve_sos():
-    """Unblocks the bot."""
+    """Unblocks the bot and resumes operation."""
     save_config("system_status", "RUNNING")
     save_config("sos_message", "")
-    st.success("✅ Resuming Agent...")
+    st.success("✅ System Resumed! The bot will retry in the next loop.")
     time.sleep(1)
     st.rerun()
 
-# --- SIDEBAR: Configuration & Identity ---
+# --- SIDEBAR: Configuration & Controls ---
 with st.sidebar:
     st.header("🎛️ Mission Control")
     
     # 1. Status Indicator
     status = get_status()
     if status == "RUNNING":
-        st.success("🟢 System Online")
+        st.markdown('<div class="success-box">🟢 SYSTEM ONLINE</div>', unsafe_allow_html=True)
         if st.button("🛑 STOP SYSTEM"):
             save_config("system_status", "STOPPED")
             st.rerun()
     elif status == "SOS":
-        st.error("🚨 SOS TRIGGERED")
+        st.markdown('<div class="error-box">🚨 SOS TRIGGERED</div>', unsafe_allow_html=True)
     else:
         st.warning("🟡 System Idle")
 
@@ -60,6 +67,7 @@ with st.sidebar:
     st.subheader("🎯 Targeting")
     curr_query = get_config("search_query") or "Software Engineer"
     new_query = st.text_input("Job Query", value=curr_query)
+    st.caption("Note: 'Easy Apply' is automatically enforced.")
     
     # 3. Identity
     st.subheader("👤 Identity")
@@ -74,7 +82,7 @@ with st.sidebar:
         text = load_cv_text(uploaded_file)
         if len(text) > 50:
             save_config("cv_text", text)
-            st.toast("CV Saved Successfully!")
+            st.toast("CV Saved Successfully!", icon="✅")
             time.sleep(1)
             st.rerun()
 
@@ -84,11 +92,11 @@ with st.sidebar:
     if st.button("💾 Save Config & START", type="primary"):
         save_config("search_query", new_query)
         save_config("system_status", "RUNNING")
-        st.toast("Orchestrator Notified!", icon="🚀")
+        st.toast("Configuration Saved. Orchestrator Notified!", icon="🚀")
         time.sleep(1)
         st.rerun()
 
-# --- MAIN AREA: Neural Feed & SOS ---
+# --- MAIN AREA: Neural Feed ---
 st.title("🧠 Neural Feed")
 
 # 🚨 SOS ALERT SECTION
@@ -99,23 +107,23 @@ if status == "SOS":
         
         c1, c2 = st.columns(2)
         with c1:
-            st.info("👉 Please open the Chrome window and perform the action manually (e.g., Log In).")
+            st.info("👉 Please open the Chrome window, perform the required action (e.g., Log In), then click Resolve.")
         with c2:
             if st.button("✅ I Have Fixed It (Resume)"):
                 resolve_sos()
 
-# 📡 LIVE LOGS SECTION
+# 📡 LIVE LOGS CONTROLS
 col_feed, col_refresh = st.columns([5, 1])
 with col_feed:
     st.caption("Real-time decision logs from the Agent Swarm.")
 with col_refresh:
-    if st.button("🔄 Refresh"):
+    if st.button("🔄 Refresh Feed"):
         st.rerun()
 
-# Fetch latest thoughts
+# Fetch latest thoughts from DB
 conn = get_connection()
 try:
-    thoughts = pd.read_sql("SELECT * FROM agent_thoughts ORDER BY id DESC LIMIT 15", conn)
+    thoughts = pd.read_sql("SELECT * FROM agent_thoughts ORDER BY id DESC LIMIT 20", conn)
 except:
     thoughts = pd.DataFrame()
 conn.close()
@@ -127,7 +135,6 @@ if not thoughts.empty:
         ts = row['timestamp'].split(" ")[1] # Just time
         
         # Icon mapping
-        role = "assistant"
         avatar = "🤖"
         if "Vision" in agent: avatar = "👁️"
         elif "Navigator" in agent: avatar = "🧭"
@@ -141,9 +148,13 @@ if not thoughts.empty:
                 if "{" in content and "}" in content:
                     parsed = json.loads(content)
                     if "page_type" in parsed:
-                        # Vision Decision pretty print
-                        st.markdown(f"**Action:** `{parsed.get('action').upper()}`")
-                        st.markdown(f"**Reason:** _{parsed.get('reasoning')}_")
+                        # Pretty print Vision decisions
+                        action = parsed.get('action', 'UNKNOWN').upper()
+                        target = parsed.get('target_som_id', 'N/A')
+                        reason = parsed.get('reasoning', '')
+                        
+                        st.markdown(f"**Action:** `{action}` on ID `{target}`")
+                        st.text(f"Reason: {reason}")
                     else:
                         st.json(parsed)
                 else:
@@ -156,4 +167,4 @@ if not thoughts.empty:
                 with st.expander("View Vision Context"):
                     st.image(row['visual_context_path'])
 else:
-    st.info("No logs found. Start the system via the Sidebar.")
+    st.info("No logs found. Please Configure and Start the system via the Sidebar.")
