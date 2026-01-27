@@ -55,7 +55,7 @@ It employs a **"Squad" of AI Agents**—powered by **Llama 4 Scout (via Groq)** 
 
 1.  **Clone the Repository**
     ```bash
-    git clone [https://github.com/Nwokike/project-commuter.git](https://github.com/Nwokike/project-commuter.git)
+    git clone https://github.com/Nwokike/project-commuter.git
     cd project-commuter
     ```
 
