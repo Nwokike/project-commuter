@@ -23,8 +23,8 @@ async def main():
         if not browser_instance.page:
             await browser_instance.launch()
         
-        print("[System] 🖥️ Opening Dashboard in Bot Browser...")
-        await browser_instance.page.goto("http://localhost:8501")
+        print("[System] 🖥️ Opening Mission Control in Bot Browser...")
+        await browser_instance.page.goto("http://localhost:8000")
         
         # Open a secondary tab for the work
         work_page = await browser_instance.browser_context.new_page()
@@ -41,10 +41,16 @@ async def main():
         search_query = get_config("search_query")
         
         if cv_text and search_query:
-            print(f"[System] ✅ Gate Open! Query: '{search_query}'")
+            print(f"[System] ✅ Gate Open! Query: '{search_query}' (CV Length: {len(cv_text)})")
             break 
         
-        print(f"[System] ⏳ WAITING: Please upload CV and set Search Query in Dashboard (http://localhost:8501)")
+        print(f"[System] ⏳ WAITING: Query='{search_query}', CV_Len={len(cv_text) if cv_text else 0}")
+        if not cv_text:
+             print("[Debug] CV Missing in DB.")
+        if not search_query:
+             print("[Debug] Query Missing in DB.")
+        
+        print(f"[System] ⏳ WAITING: Please upload CV and set Search Query in Mission Control (http://localhost:8000)")
         log_thought("System", "Gate Closed: Waiting for User Configuration in Mission Control.")
         await asyncio.sleep(5)
 

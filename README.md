@@ -42,7 +42,7 @@ It employs a **"Squad" of AI Agents**—powered by **Llama 4 Scout (via Groq)** 
 | **Vision Engine** | **Gemini 2.5 Flash** | UI Analysis & Screenshot processing |
 | **Automation** | **Playwright** (Async) | Browser control & fingerprint spoofing |
 | **Memory** | **SQLite (WAL Mode)** | Local storage for CV & past answers |
-| **UI** | **Streamlit** | Chat-based Command Center |
+| **UI** | **Mission Control** | Localhost Web Interface (FastAPI + JS) |
 
 ## ⚡ Quick Start
 

@@ -36,35 +36,108 @@ class StealthBrowser:
             "--no-sandbox",
             "--disable-infobars",
             "--disable-features=IsolateOrigins,site-per-process",
-            "--start-maximized" # Helps with visibility
+            "--start-maximized",
+            "--no-default-browser-check",
+            "--no-first-run",
+            "--disable-session-crashed-bubble" # Prevent 'Restore' popup from blocking
         ]
 
-        print(f"[StealthBrowser] 🚀 Launching Browser from {BOT_PROFILE_DIR}...")
+        # CRITICAL FIX: Use REAL User Profile for persistence (Cookies, LinkedIn Session)
+        user_data_path = os.path.join(os.environ["LOCALAPPDATA"], "Google", "Chrome", "User Data")
+        
+        # Check if dir exists, if not fallback (e.g. non-standard install)
+        if not os.path.exists(user_data_path):
+            print(f"[StealthBrowser] ⚠️ Standard Chrome Profile not found at {user_data_path}. Using local fallback.")
+            user_data_path = os.path.join(os.getcwd(), "data", "chrome_bot_profile")
+        
+        print(f"[StealthBrowser] 🚀 Launching Browser using Profile: {user_data_path}...")
         
         try:
-            # Launch Persistent Context
-            # Note: This will open a window. The user MUST log in here manually the first time.
+            # STRATEGY 1: Attach to "Debug Chrome" (Port 9222)
+            # This is the "Magic Mode" that uses the ALREADY OPEN browser.
+            try:
+                print("[StealthBrowser] 📡 Attempting to connect to existing Chrome (Port 9222)...")
+                self.browser_context = await self.playwright.chromium.connect_over_cdp("http://localhost:9222")
+                print("[StealthBrowser] ✅ Connected to your OPEN Chrome window!")
+                
+                if self.browser_context.contexts:
+                    self.browser_context = self.browser_context.contexts[0]
+                
+                if self.browser_context.pages:
+                    self.page = self.browser_context.pages[0]
+                    await self.page.bring_to_front()
+                else:
+                    self.page = await self.browser_context.new_page()
+                
+            except Exception:
+                print("[StealthBrowser] ℹ️ No Debug Chrome found (Port 9222).")
+
+            # STRATEGY 2: Launch Persistent Context (Standard Mode)
+            # This requires Chrome to be closed.
+            
+            # FAST FAIL CHECK: Is Chrome running?
+            # If Chrome is running normaly (no debug port), we CANNOT launch (Lockfile).
+            # We must detect this to avoid the "Hang".
+            print("[StealthBrowser] 🔍 Checking for existing Chrome processes...")
+            tasklist = os.popen('tasklist /FI "IMAGENAME eq chrome.exe"').read()
+            if "chrome.exe" in tasklist:
+                print("\n" + "!"*60)
+                print("🛑 BLOCKING ERROR: CHROME IS OPEN")
+                print("1. I cannot use your profile while Chrome is open.")
+                print("2. I tried to attach (CDP) but Debug Mode is OFF.")
+                print("-" * 30)
+                print("👉 SOLUTION A (Easiest): CLOSE Chrome completely, then run launcher.")
+                print("👉 SOLUTION B (Advanced): Run 'start chrome --remote-debugging-port=9222'")
+                print("!"*60 + "\n")
+                raise RuntimeError("Chrome is open. User must close it.")
+
+            print("[StealthBrowser] ⏳ Initializing Playwright Context...")
+            print("[StealthBrowser] ⚠️ IF CHROME OPENS BUT HANGS HERE: Please click 'Restore' or close any popups inside Chrome!")
+            
             self.browser_context = await self.playwright.chromium.launch_persistent_context(
-                user_data_dir=BOT_PROFILE_DIR,
+                user_data_dir=user_data_path,
                 channel="chrome",
                 headless=self.headless,
                 args=args,
                 viewport={"width": 1920, "height": 1080},
                 user_agent=ua,
-                ignore_default_args=["--enable-automation"]
+                ignore_default_args=["--enable-automation"],
+                timeout=60000 # 60s timeout for heavy profiles
             )
+            print("[StealthBrowser] ✅ Context Launched.")
             
-            self.page = self.browser_context.pages[0] if self.browser_context.pages else await self.browser_context.new_page()
+            # Handle Tabs
+            if self.browser_context.pages:
+                print(f"[StealthBrowser] ℹ️ Found {len(self.browser_context.pages)} existing tabs. Using first one.")
+                self.page = self.browser_context.pages[0]
+            else:
+                print("[StealthBrowser] ℹ️ No tabs found. Creating new page.")
+                self.page = await self.browser_context.new_page()
             
-            # Apply Stealth
-            await Stealth().apply_stealth_async(self.page)
-            
+            # Apply Stealth (Safe Mode)
+            try:
+                print("[StealthBrowser] 🕵️ Applying Stealth Measures...")
+                await asyncio.wait_for(Stealth().apply_stealth_async(self.page), timeout=5.0)
+                print("[StealthBrowser] ✅ Stealth Applied.")
+            except Exception as e:
+                print(f"[StealthBrowser] ⚠️ Stealth Skipped (Not Critical): {e}")
+
             # Hardware Concurrency Spoofing
-            await self.page.evaluate("Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8})")
+            try:
+                await self.page.evaluate("Object.defineProperty(navigator, 'hardwareConcurrency', {get: () => 8})")
+            except:
+                pass
             
             return self.page
 
         except Exception as e:
+            if "SingletonLock" in str(e) or "lock" in str(e).lower():
+                print("\n" + "="*60)
+                print("🛑 CRITICAL ERROR: CHROME IS ALREADY RUNNING")
+                print("To use your real profile (and logins), you MUST close all Chrome windows first.")
+                print("The bot cannot attach to a running browser due to file locks.")
+                print("="*60 + "\n")
+                raise RuntimeError("Chrome is open. Please close it.")
             print(f"[StealthBrowser] 💥 CRITICAL: Could not launch. {e}")
             raise e
 

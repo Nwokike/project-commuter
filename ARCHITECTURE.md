@@ -20,7 +20,7 @@ graph TD
     end
 
     subgraph "Human Layer"
-        Ops[Ops Squad] -->|Alerts| UI[Streamlit Dashboard]
+        Ops[Ops Squad] -->|Alerts| UI[Mission Control Web]
         UI -->|Overrides| Ops
     end
 

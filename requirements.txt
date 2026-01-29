@@ -1,6 +1,6 @@
 google-adk>=0.1.6
 playwright
-streamlit
+
 pandas
 python-dotenv
 pdfplumber

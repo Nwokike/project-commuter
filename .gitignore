@@ -6,6 +6,7 @@
 # Database
 data/*.db
 data/*.sqlite3
+data/
 
 # Temp files / Assets
 latest_view.png

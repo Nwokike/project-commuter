@@ -80,6 +80,13 @@ def get_config(key: str) -> str:
     conn.close()
     return row[0] if row else None
 
+# Global hook for broadcasting to WebSockets (Injected by api_server.py)
+_broadcast_hook = None
+
+def register_broadcast_hook(func):
+    global _broadcast_hook
+    _broadcast_hook = func
+
 def log_thought(agent_name: str, content: str, image_path: str = None):
     """Helper to log an agent's internal thought process."""
     conn = get_connection()
@@ -89,6 +96,22 @@ def log_thought(agent_name: str, content: str, image_path: str = None):
     )
     conn.commit()
     conn.close()
+
+    # Broadcast to Mission Control
+    if _broadcast_hook:
+        try:
+            payload = {
+                "type": "log",
+                "agent": agent_name,
+                "payload": content
+            }
+            if image_path:
+                 # Signal to update image
+                 _broadcast_hook({"type": "image_update"})
+            
+            _broadcast_hook(payload)
+        except Exception as e:
+            print(f"Broadcast failed: {e}")
 
 if __name__ == "__main__":
     init_db()
