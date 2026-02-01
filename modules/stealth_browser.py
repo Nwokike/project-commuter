@@ -42,13 +42,8 @@ class StealthBrowser:
             "--disable-session-crashed-bubble" # Prevent 'Restore' popup from blocking
         ]
 
-        # CRITICAL FIX: Use REAL User Profile for persistence (Cookies, LinkedIn Session)
-        user_data_path = os.path.join(os.environ["LOCALAPPDATA"], "Google", "Chrome", "User Data")
-        
-        # Check if dir exists, if not fallback (e.g. non-standard install)
-        if not os.path.exists(user_data_path):
-            print(f"[StealthBrowser] ⚠️ Standard Chrome Profile not found at {user_data_path}. Using local fallback.")
-            user_data_path = os.path.join(os.getcwd(), "data", "chrome_bot_profile")
+        # Use local fallback profile for Replit/Linux environment
+        user_data_path = os.path.join(os.getcwd(), "data", "chrome_bot_profile")
         
         print(f"[StealthBrowser] 🚀 Launching Browser using Profile: {user_data_path}...")
         
@@ -75,29 +70,14 @@ class StealthBrowser:
             # STRATEGY 2: Launch Persistent Context (Standard Mode)
             # This requires Chrome to be closed.
             
-            # FAST FAIL CHECK: Is Chrome running?
-            # If Chrome is running normaly (no debug port), we CANNOT launch (Lockfile).
-            # We must detect this to avoid the "Hang".
-            print("[StealthBrowser] 🔍 Checking for existing Chrome processes...")
-            tasklist = os.popen('tasklist /FI "IMAGENAME eq chrome.exe"').read()
-            if "chrome.exe" in tasklist:
-                print("\n" + "!"*60)
-                print("🛑 BLOCKING ERROR: CHROME IS OPEN")
-                print("1. I cannot use your profile while Chrome is open.")
-                print("2. I tried to attach (CDP) but Debug Mode is OFF.")
-                print("-" * 30)
-                print("👉 SOLUTION A (Easiest): CLOSE Chrome completely, then run launcher.")
-                print("👉 SOLUTION B (Advanced): Run 'start chrome --remote-debugging-port=9222'")
-                print("!"*60 + "\n")
-                raise RuntimeError("Chrome is open. User must close it.")
+            # Skip Chrome process check on Linux/Replit environment
 
             print("[StealthBrowser] ⏳ Initializing Playwright Context...")
             print("[StealthBrowser] ⚠️ IF CHROME OPENS BUT HANGS HERE: Please click 'Restore' or close any popups inside Chrome!")
             
             self.browser_context = await self.playwright.chromium.launch_persistent_context(
                 user_data_dir=user_data_path,
-                channel="chrome",
-                headless=self.headless,
+                headless=True,
                 args=args,
                 viewport={"width": 1920, "height": 1080},
                 user_agent=ua,

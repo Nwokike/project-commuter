@@ -14,28 +14,26 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY not found in .env")
+    print("[LLM Bridge] Warning: GROQ_API_KEY not found. Groq models will not be available.")
 if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in .env")
+    print("[LLM Bridge] Warning: GEMINI_API_KEY not found. Gemini models will not be available.")
 
 class GroqFallbackClient(LiteLlm):
     """
     A smart wrapper that manages a pool of Groq models.
     Implements 'Waterfall' fallback to handle TPD limits.
     """
-    # CRITICAL FIX 1: Corrected Model IDs (500k TPD models first)
     _model_names: list = PrivateAttr(default=[
-        "groq/llama-3.1-8b-instant",                   # Tier 1: Proven Stability (500k Limit)
-        "groq/meta-llama/llama-4-scout-17b-16e-instruct", # Tier 2: The New 17B (500k Limit)
-        "groq/llama-3.3-70b-versatile"                 # Tier 3: Smartest (100k Limit - Use only if others fail)
+        "groq/llama-3.1-8b-instant",
+        "groq/meta-llama/llama-4-scout-17b-16e-instruct",
+        "groq/llama-3.3-70b-versatile"
     ])
     _clients: list = PrivateAttr(default=[])
 
     def __init__(self):
-        # Initialize parent with the primary model
+        if not GROQ_API_KEY:
+            raise ValueError("GROQ_API_KEY is required but not set")
         super().__init__(model="groq/llama-3.1-8b-instant", api_key=GROQ_API_KEY)
-        
-        # Initialize wrappers for each model in the chain
         self._clients = [
             LiteLlm(model=name, api_key=GROQ_API_KEY) 
             for name in self._model_names

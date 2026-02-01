@@ -24,7 +24,7 @@ async def main():
             await browser_instance.launch()
         
         print("[System] 🖥️ Opening Mission Control in Bot Browser...")
-        await browser_instance.page.goto("http://localhost:8000")
+        await browser_instance.page.goto("http://localhost:5000")
         
         # Open a secondary tab for the work
         work_page = await browser_instance.browser_context.new_page()

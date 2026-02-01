@@ -60,3 +60,9 @@ pypy/
 # OS
 .DS_Store
 Thumbs.db
+
+# Replit
+.pythonlibs/
+.upm/
+.cache/
+.local/

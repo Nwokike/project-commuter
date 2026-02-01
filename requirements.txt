@@ -7,3 +7,15 @@ pdfplumber
 pydantic
 litellm
 pillow
+fastapi
+google-adk
+litellm
+pandas
+pdfplumber
+pillow
+playwright
+playwright-stealth
+pydantic
+python-dotenv
+sift-stack-py
+uvicorn
