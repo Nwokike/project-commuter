@@ -3,82 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Commuter - AI Job Application Assistant</title>
+    <title>Project Commuter - AI Job Agent</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
     <link rel="stylesheet" href="/static/css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="app-container">
         <header class="header">
-            <h1>Project Commuter</h1>
+            <div class="logo-area">
+                <h1>Project Commuter</h1>
+                <span class="badge-beta">BETA</span>
+            </div>
             <div class="status-bar">
                 <span id="connection-status" class="status disconnected">Disconnected</span>
-                <span id="intervention-badge" class="intervention-badge hidden">INTERVENTION REQUIRED</span>
+                <span id="intervention-badge" class="intervention-badge hidden">⚠️ INTERVENTION REQUIRED</span>
             </div>
         </header>
 
         <main class="main-content">
             <section class="browser-view">
                 <div class="browser-header">
-                    <span>Browser View</span>
+                    <span class="view-title">Live Browser Feed</span>
                     <div class="browser-controls">
-                        <button id="screenshot-btn" class="btn btn-small">Refresh</button>
-                        <button id="pause-btn" class="btn btn-small btn-warning">Pause</button>
-                        <button id="resume-btn" class="btn btn-small btn-success hidden">Resume</button>
+                        <button id="screenshot-btn" class="btn btn-icon" title="Refresh Screenshot">🔄</button>
+                        <button id="pause-btn" class="btn btn-warning btn-sm">Pause</button>
+                        <button id="resume-btn" class="btn btn-success btn-sm hidden">Resume</button>
                     </div>
                 </div>
                 <div class="browser-content" id="browser-content">
                     <div class="placeholder">
-                        <p>Browser screenshots will appear here when automation starts</p>
+                        <div class="loader"></div>
+                        <p>Waiting for automation...</p>
                     </div>
                     <img id="screenshot-img" class="screenshot hidden" alt="Browser Screenshot">
                     <div id="click-overlay" class="click-overlay hidden"></div>
                 </div>
+                
                 <div class="intervention-controls hidden" id="intervention-controls">
-                    <input type="text" id="type-input" placeholder="Type text here and press Enter...">
-                    <button id="send-text-btn" class="btn">Send Text</button>
+                    <input type="text" id="type-input" placeholder="Type here to send keys to browser..." autocomplete="off">
+                    <button id="send-text-btn" class="btn btn-primary">Send Text</button>
                 </div>
             </section>
 
             <section class="chat-section">
                 <div class="chat-messages" id="chat-messages">
                     <div class="message system">
-                        <p>Welcome to Project Commuter! I'm your AI job application assistant.</p>
-                        <p>You can:</p>
-                        <ul>
-                            <li>Chat with me normally</li>
-                            <li>Ask me to search for jobs</li>
-                            <li>Upload your CV and I'll help apply</li>
-                        </ul>
-                        <p>Just type below to get started!</p>
+                        <div class="avatar">🤖</div>
+                        <div class="content">
+                            <p><strong>Welcome to Project Commuter!</strong></p>
+                            <p>I'm your autonomous agent. I can browse the web, research companies, and apply for jobs.</p>
+                            <p>Try asking:</p>
+                            <ul>
+                                <li>"Who is OpenAI?"</li>
+                                <li>"Search for Python jobs in Lagos"</li>
+                                <li>"Apply to the first job found"</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 <div class="chat-input-container">
-                    <textarea id="chat-input" placeholder="Type your message..." rows="2"></textarea>
-                    <button id="send-btn" class="btn btn-primary">Send</button>
+                    <textarea id="chat-input" placeholder="Message Project Commuter..." rows="1"></textarea>
+                    <button id="send-btn" class="btn btn-send">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="22" y1="2" x2="11" y2="13"></line>
+                            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                        </svg>
+                    </button>
                 </div>
             </section>
         </main>
 
         <aside class="sidebar">
-            <div class="panel">
-                <h3>Your Profile</h3>
-                <form id="profile-form">
-                    <input type="text" id="full-name" placeholder="Full Name">
-                    <input type="email" id="email" placeholder="Email">
-                    <input type="text" id="phone" placeholder="Phone">
-                    <input type="text" id="location" placeholder="Location">
-                    <input type="text" id="job-titles" placeholder="Job titles (comma separated)">
-                    <textarea id="skills" placeholder="Skills (comma separated)" rows="2"></textarea>
-                    <button type="submit" class="btn btn-primary">Save Profile</button>
-                </form>
+            <div class="panel activity-panel">
+                <div class="panel-header">
+                    <h3>Neural Feed</h3>
+                    <span class="pulse-dot"></span>
+                </div>
+                <div id="activity-log" class="activity-log">
+                    <div class="activity-item system">System initialized. Waiting for input...</div>
+                </div>
             </div>
 
-            <div class="panel">
-                <h3>Agent Activity</h3>
-                <div id="activity-log" class="activity-log">
-                    <div class="activity-item">Waiting for commands...</div>
-                </div>
+            <div class="panel profile-panel">
+                <h3>User Profile</h3>
+                <form id="profile-form">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="full-name" placeholder="Required for apps">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email" placeholder="Required for apps">
+                    </div>
+                    <div class="form-group">
+                        <label>Location</label>
+                        <input type="text" id="location" placeholder="e.g. London, UK">
+                    </div>
+                    <div class="form-group">
+                        <label>Job Titles</label>
+                        <input type="text" id="job-titles" placeholder="Engineer, Designer...">
+                    </div>
+                    <div class="form-group">
+                        <label>Skills</label>
+                        <textarea id="skills" placeholder="Python, React, AWS..." rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-secondary btn-full">Save Profile</button>
+                </form>
             </div>
         </aside>
     </div>
