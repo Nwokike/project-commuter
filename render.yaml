@@ -2,11 +2,11 @@ services:
   - type: web
     name: project-commuter
     env: python
-    plan: free                 # <--- CRITICAL FIX: Forces the Free Tier
+    plan: free                 
     buildCommand: pip install -r requirements.txt && playwright install chromium
     startCommand: python server.py
     envVars:
       - key: GROQ_API_KEY
-        sync: false            # You must enter this in the Render Dashboard
+        sync: false            
       - key: PYTHON_VERSION
-        value: 3.10.12
+        value: 3.12
