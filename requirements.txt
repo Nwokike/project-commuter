@@ -4,7 +4,7 @@ fastapi
 uvicorn[standard]
 websockets
 playwright
-playwright-stealth
+playwright-stealth==1.0.6
 duckduckgo-search
 pydantic
 python-dotenv
