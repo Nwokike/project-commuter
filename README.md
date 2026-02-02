@@ -1,99 +1,107 @@
-<div align="center">
+# Project Commuter - AI Job Application Assistant
 
-# 🐜 Project Commuter
-### The Local-First Autonomous Job Agent
-**Stop Applying. Start Interviewing.**
+## Overview
+An AI-powered job application automation system built with Google's Agent Development Kit (ADK). The system uses browser automation (Playwright) with AI agents (Groq LLMs) to search and apply for jobs interactively.
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-BSD_3--Clause-green.svg)](LICENSE)
-[![Powered By](https://img.shields.io/badge/AI-Groq_%7C_Gemini-purple)](https://groq.com)
-[![Stealth](https://img.shields.io/badge/Stealth-Playwright-orange)](https://playwright.dev)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+**Key Features:**
+- **Interactive Agent:** Waits for your commands (not auto-running).
+- **Real-time Dashboard:** Streams browser screenshots to a web interface.
+- **Intervention Mode:** Allows you to take control when CAPTCHA/login appears.
+- **Privacy-Focused:** Uses DuckDuckGo for searches; no API keys required for search.
+- **Stateless Design:** No database required; uses ADK session state management (ideal for cloud deployment like Render).
+- **Groq-Powered:** Uses fast, efficient Llama models for logic and vision.
 
-[Features](#-key-features) • [Installation](#-quick-start) • [Architecture](#-architecture) • [Dashboard](#-mission-control)
+## Project Architecture
 
-</div>
 
----
+```
 
-## 🚀 What is Project Commuter?
+project_commuter/
+├── agents/                    # ADK Agents
+│   ├── **init**.py
 
-**Project Commuter** is an intelligent, autonomous agent that navigates the modern job market for you. Unlike cloud-based "spam bots" that get banned instantly, Commuter runs **locally on your machine**, using a dedicated, persistent browser profile to apply for jobs with human-like precision.
+│   ├── root_agent.py         # Main orchestrator (interactive chat)
+│   ├── vision_agent.py       # Screenshot analysis, CAPTCHA detection
+│   ├── scout_agent.py        # Job searching
+│   └── ops_agent.py          # Form filling & applications
+├── tools/                     # Agent Tools
+│   ├── **init**.py
+│   ├── browser_tools.py      # Playwright browser automation
+│   └── search_tools.py       # DuckDuckGo job search
+├── models/                    # Model Configuration
+│   ├── **init**.py
+│   └── groq_config.py        # Groq models with fallback chains
+├── static/                    # Frontend Dashboard
+│   ├── index.html
+│   ├── css/styles.css
+│   └── js/app.js
+├── server.py                  # FastAPI + WebSocket server
+├── requirements.txt
+└── render.yaml                # Render deployment config
 
-It employs a **"Squad" of AI Agents**—powered by **Llama 4 Scout (via Groq)** and **Gemini 2.5 Flash**—to find listings, analyze UI visual states, solve navigation challenges, and tailor your CV to every single application.
+```
 
-> **"It doesn't just click buttons. It sees the screen, thinks about the form, and types like a human."**
+## Tech Stack
 
-## ✨ Key Features
+### Backend
+- **Google ADK 1.23.0** - Agent Development Kit for multi-agent orchestration
+- **LiteLLM** - Unified API for Groq models
+- **FastAPI** - Async web framework with WebSocket support
+- **Playwright** - Browser automation (headless)
+- **DuckDuckGo Search** - No-API-key job searching
 
-* **🕵️‍♂️ True Stealth Mode**: Uses **Persistent Identity** technology. Instead of cloning profiles (which causes file locks), the bot maintains a dedicated, encrypted Chrome profile (`data/chrome_bot_profile`) that preserves your login session safely.
-* **🧠 Conversational Core**: A new Chat-based UI allows you to interrupt, redirect, or pause the agent using natural language commands (e.g., *"Stop applying and switch to Java jobs"*).
-* **👁️ Multimodal Vision (SoM)**: Integrates **Gemini Vision** with "Set-of-Mark" tagging to visually understand web pages, effectively solving "dynamic UI" problems that break traditional scrapers.
-* **🛡️ Cost-Optimized Swarm**: Implements a "Waterfall" model strategy to run 24/7 purely on **Free Tier** API limits.
-* **📡 Neural Feed**: A real-time command center that visualizes the agent's internal monologue and decision-making process.
-* **🆘 Human-in-the-Loop**: The **SOS Protocol** detects CAPTCHAs or complex logic hurdles and pauses for your input, ensuring 0% account ban rate.
+### Frontend
+- Vanilla HTML/CSS/JS
+- WebSocket for real-time updates
+- Interactive screenshot viewer with click-to-control
 
-## 🛠️ The Stack
+## How to Use
 
-| Component | Technology | Role |
-| :--- | :--- | :--- |
-| **Orchestration** | **Google ADK** (Agent Dev Kit) | Managing the agent state machine |
-| **Logic Engine** | **Groq** (Llama 3.1 8B / 4 Scout) | Complex reasoning & JSON parsing |
-| **Vision Engine** | **Gemini 2.5 Flash** | UI Analysis & Screenshot processing |
-| **Automation** | **Playwright** (Async) | Browser control & fingerprint spoofing |
-| **Memory** | **SQLite (WAL Mode)** | Local storage for CV & past answers |
-| **UI** | **Mission Control** | Localhost Web Interface (FastAPI + JS) |
+### 1. Setup & Installation
+**Locally:**
+```bash
+pip install -r requirements.txt
+playwright install chromium
+python server.py
 
-## ⚡ Quick Start
+```
 
-### Prerequisites
-* Python 3.10+
-* Google Chrome installed
-* API Keys for **Groq** and **Google Gemini**
+**Environment Variables:**
+Create a `.env` file (or set in your cloud provider):
 
-### Installation
+* `GROQ_API_KEY` - Your Groq API key
 
-1.  **Clone the Repository**
-    ```bash
-    git clone [https://github.com/Nwokike/project-commuter.git](https://github.com/Nwokike/project-commuter.git)
-    cd project-commuter
-    ```
+### 2. Fill Your Profile
 
-2.  **Install Dependencies**
-    ```bash
-    pip install -r requirements.txt
-    playwright install chrome
-    ```
+Open the dashboard (default: `http://localhost:5000` or your Render URL). Enter your name, email, phone, location, job titles, and skills in the sidebar form. Click "Save Profile".
 
-3.  **Configure Environment**
-    Create a `.env` file in the root directory:
-    ```env
-    GROQ_API_KEY=gsk_...
-    GEMINI_API_KEY=AIza...
-    ```
+### 3. Chat with the Agent
 
-4.  **Launch the System**
-    ```bash
-    python "python launcher.py"
-    ```
-    *Note: On the first run, a Chrome window will open. You MUST log in to LinkedIn manually in this window. The bot will save your session for future runs.*
+Type messages like:
 
-## 🎮 Mission Control
+* "Hi, how are you?" (normal conversation)
+* "Search for software engineer jobs in San Francisco"
+* "Apply to the first job in the list"
+* "Navigate to linkedin.com/jobs"
 
-Once launched, the bot will automatically open the dashboard in your browser (`http://localhost:8501`).
+### 4. Intervention Mode
 
-* **Step 1:** Go to the **Mission Control** sidebar and upload your **CV (PDF)**.
-* **Step 2:** In the main Chat Interface, type a command to start:
-  * `"Find Remote Python Jobs"`
-  * `"Start"`
-* **Step 3:** Watch the **Neural Feed**. You will see the bot dispatch the Scout, process the feed, and begin applying.
-* **Interruption:** Need to change plans? Just type `"Stop"` or `"Search for DevOps instead"` at any time.
+When the agent encounters a login page or CAPTCHA:
 
-## 🏗️ Architecture
+* The **INTERVENTION REQUIRED** badge appears.
+* A live browser screenshot is displayed.
+* **Click on the screenshot** to interact with the browser directly.
+* **Type in the text box** to send keystrokes.
+* Click **Resume** when finished.
 
-Project Commuter isn't a script; it's a **Multi-Agent System**.
-See [ARCHITECTURE.md](ARCHITECTURE.md) for a deep dive into the **Scout**, **Vision**, **Brain**, and **Ops** squads.
+## Session State Management
 
-## ⚠️ Disclaimer
+The app uses ADK's `InMemorySessionService`.
 
-*This tool is strictly for educational and research purposes. Please respect the Terms of Service of any platform you interact with. The authors are not responsible for account suspensions or misuse.*
+* **User Prefs:** Stored with `user:` prefix.
+* **Session Data:** Temporary data (current search results) lives only as long as the server is running.
+* **Note for Cloud Hosting:** On free tier hosting (like Render), data resets when the instance spins down.
+
+## Disclaimer
+
+This tool is strictly for educational and research purposes. Please respect the Terms of Service of any platform you interact with. The authors are not responsible for account suspensions or misuse.
