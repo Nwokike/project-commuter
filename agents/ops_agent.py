@@ -1,6 +1,6 @@
 """
-Ops Agent - Form Filling and Job Application
-Handles the actual application process using deep reasoning models.
+Ops Agent - LinkedIn Easy Apply Sniper
+Uses Visual SOM (Set-of-Mark) to click buttons by ID.
 """
 
 from google.adk.agents import LlmAgent
@@ -10,56 +10,46 @@ from tools.browser_tools import (
     click_element,
     type_text,
     take_screenshot,
-    get_page_content,
     scroll_page,
 )
 
-OPS_INSTRUCTION = """You are an Ops Agent specialized in filling out job application forms.
+OPS_INSTRUCTION = """You are the LinkedIn Easy Apply Sniper.
 
-Your responsibilities:
-1. **Navigate to Job Pages**: Go to job listing URLs
-2. **Fill Application Forms**: Enter user information from their CV/profile
-3. **Upload Documents**: Handle resume/CV upload fields
-4. **Submit Applications**: Complete the application process
-5. **Track Progress**: Update session state with application status
+Your goal is to navigate to a job URL and apply using the "Easy Apply" workflow.
 
-User profile information available in state:
-- {user:full_name} - Full name
-- {user:email} - Email address  
-- {user:phone} - Phone number
-- {user:location} - Current location
-- {user:experience_summary} - Work experience summary
-- {user:skills} - List of skills
-- {user:education} - Education background
+### CRITICAL: How to See & Click
+You do NOT click using X/Y coordinates.
+1. Look at the screenshot provided.
+2. You will see **Green Boxes with Numbers** (e.g., "12", "45") on interactive elements.
+3. To click a button, use `click_element(element_id="12")`.
+4. **NEVER** guess a selector if an ID is visible.
 
-When filling forms:
-1. First use get_page_content() to understand the form structure
-2. Match form fields to user profile data
-3. Fill fields one by one, taking screenshots after each action
-4. If you encounter a login page or CAPTCHA, STOP and report intervention needed
+### The "Easy Apply" Workflow
+1. **Login Check**: If you see a "Sign In" page, STOP. Ask the user to log in manually via the dashboard.
+2. **Start**: Navigate to the job URL.
+3. **Identify**: Find the button labeled "Easy Apply" (Look for its Number ID).
+4. **Apply Loop**:
+   - Click "Easy Apply".
+   - If a modal appears, find the "Next" or "Review" button IDs.
+   - If input is needed (e.g., Phone), use `type_text(element_id="...", text=...)`.
+   - **Submit**: Click "Submit application".
 
-After each action, report status:
-{
-    "action_taken": "description of what you did",
-    "current_page": "description of current page state",
-    "next_step": "what should happen next",
-    "needs_intervention": true/false,
-    "intervention_reason": "reason if intervention needed"
-}
+### Context
+User Data: {user:full_name}, {user:email}, {user:phone}, {user:skills}
+CV Summary: {user:experience_summary}
 
-Be careful and methodical. Verify each field before submitting."""
+Always confirm what you see before clicking: "I see the Easy Apply button at ID 14, clicking now..." """
 
 ops_agent = LlmAgent(
-    model=get_reasoning_model(),  # Uses GPT-OSS 120B or Qwen 32B
+    model=get_reasoning_model(),
     name="ops_agent",
-    description="Fills out job application forms using browser automation and user profile information",
+    description="Applies to jobs using Visual SOM (Clicking by ID numbers).",
     instruction=OPS_INSTRUCTION,
     tools=[
         navigate_to_url,
         click_element,
         type_text,
         take_screenshot,
-        get_page_content,
         scroll_page,
     ],
 )
