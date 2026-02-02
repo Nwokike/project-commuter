@@ -1,10 +1,48 @@
 """
-Job Search Tools using DuckDuckGo
+Job Search and Web Research Tools using DuckDuckGo
 No API keys required - privacy-focused search
 """
 
 from duckduckgo_search import DDGS
 from typing import Optional
+
+
+def search_web(query: str, max_results: int = 5) -> dict:
+    """
+    Perform a general web search for information.
+    Use this to answer questions like "Who is...", "What is...", or find company info.
+    
+    Args:
+        query: The search query string
+        max_results: Number of results to return (default 5)
+        
+    Returns:
+        dict containing search results with titles, snippets, and URLs
+    """
+    try:
+        with DDGS() as ddgs:
+            results = []
+            # 'text' is the general search method
+            for result in ddgs.text(query, max_results=max_results):
+                results.append({
+                    "title": result.get("title", ""),
+                    "url": result.get("href", ""),
+                    "snippet": result.get("body", ""),
+                    "source": "DuckDuckGo"
+                })
+            
+            return {
+                "status": "success",
+                "type": "general_search",
+                "query": query,
+                "results": results
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "results": []
+        }
 
 
 def search_jobs(
@@ -13,7 +51,7 @@ def search_jobs(
     max_results: int = 10
 ) -> dict:
     """
-    Search for jobs using DuckDuckGo.
+    Search specifically for job listings using DuckDuckGo.
     
     Args:
         query: Job search query (e.g., "software engineer python")
@@ -40,6 +78,7 @@ def search_jobs(
             
             return {
                 "status": "success",
+                "type": "job_search",
                 "query": search_query,
                 "results": results,
                 "count": len(results)
@@ -54,7 +93,7 @@ def search_jobs(
 
 def search_company_info(company_name: str) -> dict:
     """
-    Search for information about a company.
+    Search for specific information about a company's careers or culture.
     
     Args:
         company_name: Name of the company to research
@@ -83,7 +122,7 @@ def search_company_info(company_name: str) -> dict:
 
 def search_job_boards(job_title: str, location: str = "") -> dict:
     """
-    Search major job boards for a specific role.
+    Generate direct search URLs for major job boards.
     
     Args:
         job_title: The job title to search for
