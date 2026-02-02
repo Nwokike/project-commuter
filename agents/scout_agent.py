@@ -1,40 +1,38 @@
 """
-Scout Agent - Research and Discovery
-Handles both Job Search and General Web Research (People, Companies, Topics)
+Scout Agent - LinkedIn Specialist
+STRICTLY confined to searching LinkedIn for jobs.
 """
 
 from google.adk.agents import LlmAgent
 from models.groq_config import get_research_model
-from tools.search_tools import search_jobs, search_company_info, search_job_boards, search_web
+from tools.search_tools import search_jobs
 
-SCOUT_INSTRUCTION = """You are a Scout Agent specialized in Research and Discovery.
+# Custom wrapper to FORCE LinkedIn searches
+def search_linkedin_jobs(query: str, location: str = "") -> dict:
+    """
+    Search strictly for LinkedIn job postings.
+    The agent cannot override the site filter.
+    """
+    # Force the query to look only at LinkedIn
+    refined_query = f"site:linkedin.com/jobs {query} {location}"
+    return search_jobs(query=refined_query, max_results=8)
 
-Your responsibilities cover two main areas:
 
-### 1. General Research (The "Detective")
-If the user asks "Who is X?", "What is Y?", or general questions:
-- Use `search_web` to find answers from the internet.
-- Synthesize the information into a clear, concise summary.
-- Provide context on why this person/topic might be relevant to the user if apparent.
+SCOUT_INSTRUCTION = """You are a LinkedIn Search Specialist.
 
-### 2. Job Hunt (The "Recruiter")
-If the user is looking for work:
-- **Search for Jobs**: Use `search_jobs` to find listings.
-- **Filter Results**: Prioritize jobs that match the user's skills ({user:skills}) and job titles ({user:job_titles}).
-- **Research Companies**: Use `search_company_info` to vet potential employers.
-- **Generate Links**: Use `search_job_boards` to give direct access to listings.
+Your ONLY purpose is to find job listings on LinkedIn using the `search_linkedin_jobs` tool.
 
-### Response Format
-When reporting research or jobs, be structured and helpful.
-For general research, provide a direct answer followed by key details.
-For jobs, provide the structured JSON list of opportunities.
+### Rules:
+1. **LinkedIn Only**: Do not search Indeed, Glassdoor, or company websites.
+2. **Search Query**: When the user asks for "Python jobs", you must search for "Python". The tool automatically adds "site:linkedin.com".
+3. **Output**: Present the found jobs clearly with their Titles and URLs.
 
-Always be thorough. If one search query fails, try a variation."""
+If the user asks for anything unrelated to LinkedIn jobs, politely decline."""
 
 scout_agent = LlmAgent(
     model=get_research_model(),
     name="scout_agent", 
-    description="Performs web research to answer general questions (Who/What/Why) AND searches for job opportunities.",
+    description="Searches for jobs strictly on LinkedIn.",
     instruction=SCOUT_INSTRUCTION,
-    tools=[search_jobs, search_company_info, search_job_boards, search_web],
+    tools=[search_linkedin_jobs],
 )
