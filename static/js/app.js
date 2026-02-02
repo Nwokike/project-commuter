@@ -12,7 +12,8 @@ class ProjectCommuter {
         
         // Auto-expand logs briefly on load then collapse
         setTimeout(() => {
-            document.getElementById('neural-feed-panel').classList.add('collapsed');
+            const panel = document.getElementById('neural-feed-panel');
+            if(panel) panel.classList.add('collapsed');
         }, 2000);
     }
 
@@ -24,11 +25,13 @@ class ProjectCommuter {
         
         this.ws.onopen = () => {
             document.getElementById('connection-status').classList.add('connected');
+            document.getElementById('connection-status').title = "Connected";
             this.addActivity('Neural Core Online. Waiting for CV...', 'highlight');
         };
         
         this.ws.onclose = () => {
             document.getElementById('connection-status').classList.remove('connected');
+            document.getElementById('connection-status').title = "Disconnected";
             setTimeout(() => this.connectWebSocket(), 3000);
         };
         
@@ -47,7 +50,6 @@ class ProjectCommuter {
                 this.showThinkingIndicator(data.message);
                 break;
             case 'agent_action':
-                // Log to Neural Feed (Newest Top)
                 this.addActivity(data.actions, 'highlight');
                 this.updateThinkingText(data.actions);
                 break;
@@ -64,20 +66,20 @@ class ProjectCommuter {
 
     addActivity(message, type = '') {
         const log = document.getElementById('activity-log');
+        if (!log) return;
+        
         const time = new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' });
         
         const div = document.createElement('div');
         div.className = `activity-item ${type}`;
         div.innerHTML = `<span class="time">[${time}]</span> ${message}`;
         
-        // PREPEND: Insert at the very top
         if (log.firstChild) {
             log.insertBefore(div, log.firstChild);
         } else {
             log.appendChild(div);
         }
         
-        // Limit history to 50 items
         if (log.children.length > 50) {
             log.removeChild(log.lastChild);
         }
@@ -88,60 +90,101 @@ class ProjectCommuter {
         const uploadBtn = document.getElementById('upload-cv-btn');
         const fileInput = document.getElementById('cv-upload-input');
         
-        uploadBtn.addEventListener('click', () => fileInput.click());
-        
-        fileInput.addEventListener('change', async (e) => {
-            if (e.target.files.length > 0) {
-                const file = e.target.files[0];
-                const formData = new FormData();
-                formData.append('file', file);
-                
-                this.addActivity(`Uploading CV: ${file.name}...`, 'highlight');
-                
-                try {
-                    const response = await fetch('/api/upload_cv', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        this.addActivity('CV Analyzed. Context Updated.', 'highlight');
-                        this.addChatMessage(`I've analyzed your CV, ${result.profile.full_name}. I know your skills in ${result.profile.skills.slice(0,3).join(', ')}. Ready to apply.`, 'agent');
+        if (uploadBtn && fileInput) {
+            uploadBtn.addEventListener('click', () => fileInput.click());
+            
+            fileInput.addEventListener('change', async (e) => {
+                if (e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    this.addActivity(`Uploading CV: ${file.name}...`, 'highlight');
+                    this.addChatMessage(`Uploading ${file.name}...`, 'user');
+                    
+                    try {
+                        const response = await fetch('/api/upload_cv', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            this.addActivity('CV Analyzed. Auto-launching LinkedIn...', 'highlight');
+                            this.addChatMessage(`I've read your CV, ${result.profile.full_name}. Opening LinkedIn login page for you now...`, 'agent');
+                            
+                            // AUTO-ACTION: Open LinkedIn immediately so user can log in
+                            this.sendChatMessage("Open linkedin.com/login so I can sign in");
+                        }
+                    } catch (error) {
+                        this.addActivity('CV Upload Failed', 'error');
+                        this.addChatMessage('Error uploading CV. Please try again.', 'system');
                     }
-                } catch (error) {
-                    this.addActivity('CV Upload Failed', 'error');
                 }
-            }
-        });
+            });
+        }
 
         // 2. Feed Toggle
-        document.getElementById('feed-toggle').addEventListener('click', () => {
-            document.getElementById('neural-feed-panel').classList.toggle('collapsed');
-        });
+        const feedToggle = document.getElementById('feed-toggle');
+        if (feedToggle) {
+            feedToggle.addEventListener('click', () => {
+                document.getElementById('neural-feed-panel').classList.toggle('collapsed');
+            });
+        }
 
         // 3. Chat Send
         const sendBtn = document.getElementById('send-btn');
         const chatInput = document.getElementById('chat-input');
         
-        const sendMessage = () => {
-            const text = chatInput.value.trim();
-            if (!text) return;
-            this.addChatMessage(text, 'user');
-            this.ws.send(JSON.stringify({ type: 'chat', message: text }));
-            chatInput.value = '';
-        };
-
-        sendBtn.addEventListener('click', sendMessage);
-        chatInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
+        if (sendBtn && chatInput) {
+            sendBtn.addEventListener('click', () => this.handleUserSend());
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.handleUserSend();
+                }
+            });
+        }
+        
+        // 4. Intervention Controls
+        const intSendBtn = document.getElementById('send-text-btn');
+        const intInput = document.getElementById('type-input');
+        const resumeBtn = document.getElementById('resume-btn');
+        
+        if (intSendBtn) {
+            intSendBtn.addEventListener('click', () => {
+                const text = intInput.value;
+                if(text) {
+                     this.ws.send(JSON.stringify({ type: 'intervention', action: { action: 'type', text: text, selector: 'body' } })); // Simple type fallback
+                     intInput.value = '';
+                }
+            });
+        }
+        
+        if (resumeBtn) {
+            resumeBtn.addEventListener('click', () => {
+                this.ws.send(JSON.stringify({ type: 'intervention', action: { action: 'resume' } }));
+                document.getElementById('intervention-controls').classList.add('hidden');
+            });
+        }
     }
 
-    // ... (Helpers: showThinkingIndicator, updateScreenshot - similar to before) ...
-    
+    handleUserSend() {
+        const chatInput = document.getElementById('chat-input');
+        const text = chatInput.value.trim();
+        if (!text) return;
+        this.addChatMessage(text, 'user');
+        this.sendChatMessage(text);
+        chatInput.value = '';
+    }
+
+    sendChatMessage(text) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type: 'chat', message: text }));
+        } else {
+            this.addActivity('Error: WebSocket not connected', 'error');
+        }
+    }
+
     showThinkingIndicator(text) {
         if (this.thinkingMessageId) return;
         const container = document.getElementById('chat-messages');
@@ -169,7 +212,11 @@ class ProjectCommuter {
         const div = document.createElement('div');
         div.className = `message ${type}`;
         const avatar = type === 'user' ? '👤' : '🎯';
-        div.innerHTML = `<div class="avatar">${avatar}</div><div class="content">${message}</div>`;
+        
+        // Convert URLs to links
+        const formatted = message.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#fff;text-decoration:underline;">$1</a>');
+        
+        div.innerHTML = `<div class="avatar">${avatar}</div><div class="content">${formatted}</div>`;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
@@ -177,8 +224,10 @@ class ProjectCommuter {
     updateScreenshot(base64Data) {
         const img = document.getElementById('screenshot-img');
         const placeholder = document.querySelector('.placeholder');
-        img.src = `data:image/png;base64,${base64Data}`;
-        img.classList.remove('hidden');
+        if (img) {
+            img.src = `data:image/png;base64,${base64Data}`;
+            img.classList.remove('hidden');
+        }
         if (placeholder) placeholder.style.display = 'none';
     }
 }
