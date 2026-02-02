@@ -78,4 +78,4 @@ def get_vision_model() -> LiteLlm:
 
 def get_research_model() -> LiteLlm:
     """Get the primary research model (Scout Agent)."""
-    return LiteLlm(model=GROQ_MODELS["research"]["primary"]) ok
+    return LiteLlm(model=GROQ_MODELS["research"]["primary"])
