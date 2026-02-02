@@ -1,107 +1,104 @@
-# Project Commuter - AI Job Application Assistant
+# Project Commuter
 
-## Overview
-An AI-powered job application automation system built with Google's Agent Development Kit (ADK). The system uses browser automation (Playwright) with AI agents (Groq LLMs) to search and apply for jobs interactively.
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
+[![Playwright](https://img.shields.io/badge/Playwright-Stealth-green?style=for-the-badge&logo=google-chrome&logoColor=white)](https://playwright.dev)
+[![Groq](https://img.shields.io/badge/AI-Groq%20Llama%203-orange?style=for-the-badge&logo=meta&logoColor=white)](https://groq.com)
+[![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
-**Key Features:**
-- **Interactive Agent:** Waits for your commands (not auto-running).
-- **Real-time Dashboard:** Streams browser screenshots to a web interface.
-- **Intervention Mode:** Allows you to take control when CAPTCHA/login appears.
-- **Privacy-Focused:** Uses DuckDuckGo for searches; no API keys required for search.
-- **Stateless Design:** No database required; uses ADK session state management (ideal for cloud deployment like Render).
-- **Groq-Powered:** Uses fast, efficient Llama models for logic and vision.
+**Project Commuter** is a specialized, autonomous agent designed for one specific mission: **High-Precision LinkedIn Easy Apply**.
 
-## Project Architecture
+Unlike generic bots that "spray and pray," Commuter acts as a **Sniper**. It uses **Visual Set-of-Mark (SOM)** technology to "see" the screen exactly as a human does, identifying buttons by ID rather than guessing coordinates. It reads your PDF CV, builds a mental model of your career, and applies intelligently.
 
+---
 
-```
+## ⚡ Key Capabilities
 
-project_commuter/
-├── agents/                    # ADK Agents
-│   ├── **init**.py
+### 🧠 **Context Injection Engine**
+No more filling out JSON config files.
+* **Drag & Drop:** Upload your PDF CV directly to the dashboard.
+* **Instant Parsing:** The Llama-8B model extracts your skills, experience, and bio in milliseconds.
+* **Adaptive Memory:** The agent uses this context to answer application questions dynamically.
 
-│   ├── root_agent.py         # Main orchestrator (interactive chat)
-│   ├── vision_agent.py       # Screenshot analysis, CAPTCHA detection
-│   ├── scout_agent.py        # Job searching
-│   └── ops_agent.py          # Form filling & applications
-├── tools/                     # Agent Tools
-│   ├── **init**.py
-│   ├── browser_tools.py      # Playwright browser automation
-│   └── search_tools.py       # DuckDuckGo job search
-├── models/                    # Model Configuration
-│   ├── **init**.py
-│   └── groq_config.py        # Groq models with fallback chains
-├── static/                    # Frontend Dashboard
-│   ├── index.html
-│   ├── css/styles.css
-│   └── js/app.js
-├── server.py                  # FastAPI + WebSocket server
-├── requirements.txt
-└── render.yaml                # Render deployment config
+### 👁️ **Visual Set-of-Mark (SOM)**
+The "Secret Sauce" behind our reliability.
+* **No Blind Clicks:** The agent doesn't guess X/Y coordinates.
+* **Semantic Vision:** It draws **Green ID Boxes** on every interactive element (buttons, inputs).
+* **Precision:** It commands the browser: *"Click ID #42 (Submit Button)"*—eliminating "missed click" errors common in other bots.
 
-```
+### 🛡️ **Stealth Architecture**
+Built to survive in the wild.
+* **Fingerprint Masking:** Uses `playwright-stealth` to mimic human browser headers.
+* **LinkedIn-Only Scope:** Hardcoded restrictions prevent the bot from wandering into "honeypot" sites.
+* **Human-in-the-Loop:** A "Take Control" intervention mode allows you to handle CAPTCHAs manually without killing the session.
 
-## Tech Stack
+---
 
-### Backend
-- **Google ADK 1.23.0** - Agent Development Kit for multi-agent orchestration
-- **LiteLLM** - Unified API for Groq models
-- **FastAPI** - Async web framework with WebSocket support
-- **Playwright** - Browser automation (headless)
-- **DuckDuckGo Search** - No-API-key job searching
+## 🚀 Quick Start
 
-### Frontend
-- Vanilla HTML/CSS/JS
-- WebSocket for real-time updates
-- Interactive screenshot viewer with click-to-control
+### Prerequisites
+* `GROQ_API_KEY` (Required for the AI Brain)
+* Python 3.10+
 
-## How to Use
-
-### 1. Setup & Installation
-**Locally:**
+### 1. Installation
 ```bash
+git clone https://github.com/nwokike/project-commuter.git
+cd project-commuter
 pip install -r requirements.txt
 playwright install chromium
+
+```
+
+### 2. Launch the Neural Core
+
+```bash
 python server.py
 
 ```
 
-**Environment Variables:**
-Create a `.env` file (or set in your cloud provider):
+> The dashboard will go live at `http://localhost:5000`
 
-* `GROQ_API_KEY` - Your Groq API key
+### 3. Workflow
 
-### 2. Fill Your Profile
+1. **Upload CV:** Click the **📄 Upload CV** button in the header.
+2. **Authenticate:** Manually log in to LinkedIn in the **Live Target** browser window.
+3. **Command:** Type your objective into the chat:
+> *"Apply to Senior Python Developer jobs in London (Remote)."*
 
-Open the dashboard (default: `http://localhost:5000` or your Render URL). Enter your name, email, phone, location, job titles, and skills in the sidebar form. Click "Save Profile".
 
-### 3. Chat with the Agent
 
-Type messages like:
+---
 
-* "Hi, how are you?" (normal conversation)
-* "Search for software engineer jobs in San Francisco"
-* "Apply to the first job in the list"
-* "Navigate to linkedin.com/jobs"
+## 🏗️ Architecture
 
-### 4. Intervention Mode
+The system follows a strict **Hierarchical Agent Pattern**:
 
-When the agent encounters a login page or CAPTCHA:
+```mermaid
+graph TD
+    User[User Command] --> Root[Root Orchestrator]
+    Root --> |Research| Scout[Scout Agent]
+    Root --> |Apply| Ops[Ops Agent]
+    Root --> |Analyze| Vision[Vision Agent]
+    
+    Scout --> |Search| LinkedIn[LinkedIn Search]
+    Ops --> |Action| Browser[Playwright + Visual SOM]
+    Vision --> |Analysis| Screen[Screenshot Tagging]
 
-* The **INTERVENTION REQUIRED** badge appears.
-* A live browser screenshot is displayed.
-* **Click on the screenshot** to interact with the browser directly.
-* **Type in the text box** to send keystrokes.
-* Click **Resume** when finished.
+```
 
-## Session State Management
+* **Root Agent:** The Strategist. Manages the session and delegates tasks.
+* **Scout Agent:** The Hunter. specialized in finding high-quality listings.
+* **Ops Agent:** The Executor. Handles the "Easy Apply" modal flow.
+* **Vision Agent:** The Observer. Detects login screens and success states.
 
-The app uses ADK's `InMemorySessionService`.
+---
 
-* **User Prefs:** Stored with `user:` prefix.
-* **Session Data:** Temporary data (current search results) lives only as long as the server is running.
-* **Note for Cloud Hosting:** On free tier hosting (like Render), data resets when the instance spins down.
+## ⚠️ Disclaimer
 
-## Disclaimer
+**Educational Use Only.**
+This software is designed for research into autonomous web agents. Using automated tools on LinkedIn violates their Terms of Service. The authors are not responsible for account suspensions or bans. **Use at your own risk.**
 
-This tool is strictly for educational and research purposes. Please respect the Terms of Service of any platform you interact with. The authors are not responsible for account suspensions or misuse.
+---
+
+## 🤝 Contributing
+
+We value **Quality over Quantity**. Please read `CONTRIBUTING.md` before submitting PRs.
