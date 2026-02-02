@@ -1,4 +1,4 @@
-google-adk>=1.0.0
+google-adk
 litellm
 fastapi
 uvicorn[standard]
@@ -8,6 +8,3 @@ playwright-stealth
 duckduckgo-search
 pydantic
 python-dotenv
-duckduckgo-search
-sift-stack-py
-websockets
