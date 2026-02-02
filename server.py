@@ -242,6 +242,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         session_id=current_session_id,
                         new_message=content
                     ):
+                        # Handle Text Response
                         if hasattr(event, 'content') and event.content:
                             for part in event.content.parts:
                                 if hasattr(part, 'text') and part.text:
@@ -250,10 +251,47 @@ async def websocket_endpoint(websocket: WebSocket):
                                         "message": part.text
                                     })
                         
-                        if hasattr(event, 'actions'):
+                        # Handle Actions (Tools) - Clean up the log output
+                        if hasattr(event, 'actions') and event.actions:
+                            # Try to extract readable tool names
+                            actions_desc = []
+                            try:
+                                for action in event.actions:
+                                    # Handle standard ToolRequest objects
+                                    if hasattr(action, 'tool_name'):
+                                        name = action.tool_name
+                                        # Clean up args string if it exists
+                                        args = getattr(action, 'tool_args', '')
+                                        desc = f"Use tool: {name}"
+                                        if args:
+                                            # Truncate long args for display
+                                            args_str = str(args)
+                                            if len(args_str) > 50:
+                                                args_str = args_str[:47] + "..."
+                                            desc += f"({args_str})"
+                                        actions_desc.append(desc)
+                                    # Handle simple objects or strings
+                                    elif hasattr(action, 'name'):
+                                        actions_desc.append(f"Calling: {action.name}")
+                                    else:
+                                        # Fallback but avoid huge dumps
+                                        s = str(action)
+                                        if "skip_summarization" not in s: # Filter internal noise
+                                            actions_desc.append(s[:50] + "..." if len(s) > 50 else s)
+                            except:
+                                actions_desc.append("Thinking...")
+
+                            if actions_desc:
+                                await websocket.send_json({
+                                    "type": "agent_action",
+                                    "actions": " | ".join(actions_desc)
+                                })
+                        
+                        # Handle Agent Transfers (Reasoning steps)
+                        if hasattr(event, 'transfer_to_agent') and event.transfer_to_agent:
                             await websocket.send_json({
                                 "type": "agent_action",
-                                "actions": str(event.actions)
+                                "actions": f"Delegating to {event.transfer_to_agent}"
                             })
                     
                 except Exception as e:
