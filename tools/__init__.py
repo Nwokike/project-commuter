@@ -8,7 +8,6 @@ from .browser_tools import (
     click_element,
     type_text,
     take_screenshot,
-    get_page_content,
     scroll_page,
 )
 from .search_tools import (
@@ -23,7 +22,6 @@ __all__ = [
     "click_element", 
     "type_text",
     "take_screenshot",
-    "get_page_content",
     "scroll_page",
     "search_jobs",
     "search_web",
