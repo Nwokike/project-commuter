@@ -1,10 +1,10 @@
 """
 Ops Agent - Form Filling and Job Application
-Handles the actual application process
+Handles the actual application process using deep reasoning models.
 """
 
 from google.adk.agents import LlmAgent
-from models.groq_config import get_fast_model
+from models.groq_config import get_reasoning_model
 from tools.browser_tools import (
     navigate_to_url,
     click_element,
@@ -50,7 +50,7 @@ After each action, report status:
 Be careful and methodical. Verify each field before submitting."""
 
 ops_agent = LlmAgent(
-    model=get_fast_model(),
+    model=get_reasoning_model(),  # Uses GPT-OSS 120B or Qwen 32B
     name="ops_agent",
     description="Fills out job application forms using browser automation and user profile information",
     instruction=OPS_INSTRUCTION,
