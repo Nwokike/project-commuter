@@ -29,20 +29,19 @@ MODEL_REGISTRY = {
 }
 
 # Configuration of Role-Based Hierarchies
-# The agent will attempt to use these in order (conceptual fallback)
 GROQ_MODELS = {
     "orchestrator": {
-        "primary": MODEL_REGISTRY["llama-70b"],     # Smartest coordinator
-        "secondary": MODEL_REGISTRY["gpt-20b"],     # Strong generalist
-        "tertiary": MODEL_REGISTRY["gpt-20b-safe"], # Safe backup
-        "fallback": MODEL_REGISTRY["llama-8b"],     # Ultimate speed/backup
+        "primary": MODEL_REGISTRY["llama-70b"],
+        "secondary": MODEL_REGISTRY["gpt-20b"],
+        "tertiary": MODEL_REGISTRY["gpt-20b-safe"],
+        "fallback": MODEL_REGISTRY["llama-8b"],
         "description": "Orchestration and chat interaction"
     },
     "reasoning": {
-        "primary": MODEL_REGISTRY["gpt-120b"],      # Deepest thinker for forms
-        "secondary": MODEL_REGISTRY["qwen-32b"],    # Strong logic backup
-        "tertiary": MODEL_REGISTRY["gpt-20b"],      # Reuse 20B as requested
-        "fallback": MODEL_REGISTRY["llama-70b"],    # Very capable fallback
+        "primary": MODEL_REGISTRY["gpt-120b"],
+        "secondary": MODEL_REGISTRY["qwen-32b"],
+        "tertiary": MODEL_REGISTRY["gpt-20b"],
+        "fallback": MODEL_REGISTRY["llama-70b"],
         "description": "Complex reasoning and decision making"
     },
     "vision": {
@@ -51,23 +50,25 @@ GROQ_MODELS = {
         "description": "Screenshot analysis and CAPTCHA detection"
     },
     "research": {
-        "primary": MODEL_REGISTRY["kimi-k2"],       # Good with large context
+        "primary": MODEL_REGISTRY["kimi-k2"],
         "secondary": MODEL_REGISTRY["kimi-k2-old"],
         "fallback": MODEL_REGISTRY["llama-70b"],
         "description": "Web search synthesis and research"
+    },
+    "parser": {
+        "primary": MODEL_REGISTRY["llama-8b"], # Fast 8B for parsing CVs
+        "description": "Data extraction from text"
     }
 }
 
 
 def get_fast_model() -> LiteLlm:
     """Get the primary model for orchestration (Root Agent)."""
-    # Uses Llama 3.3 70B by default for best instruction following
     return LiteLlm(model=GROQ_MODELS["orchestrator"]["primary"])
 
 
 def get_reasoning_model() -> LiteLlm:
     """Get the primary model for complex tasks (Ops Agent)."""
-    # Uses GPT-OSS 120B for deep reasoning on form logic
     return LiteLlm(model=GROQ_MODELS["reasoning"]["primary"])
 
 
@@ -79,3 +80,7 @@ def get_vision_model() -> LiteLlm:
 def get_research_model() -> LiteLlm:
     """Get the primary research model (Scout Agent)."""
     return LiteLlm(model=GROQ_MODELS["research"]["primary"])
+
+def get_parser_model() -> LiteLlm:
+    """Get the fast model for CV parsing."""
+    return LiteLlm(model=GROQ_MODELS["parser"]["primary"])
