@@ -1,46 +1,32 @@
 """
-Vision Agent - Screenshot Analysis and Intervention Detection
-Uses Llama 4 Scout for visual understanding
+Vision Agent - Screen Analyst
+Analyzes screenshots for state detection (Login, CAPTCHA, Success).
 """
 
 from google.adk.agents import LlmAgent
 from models.groq_config import get_vision_model
+from tools.browser_tools import take_screenshot
 
-VISION_INSTRUCTION = """You are a Vision Agent specialized in analyzing browser screenshots for job application automation.
+VISION_INSTRUCTION = """You are the Vision Agent. Your job is to analyze the browser state.
 
-Your responsibilities:
-1. **Analyze Screenshots**: Describe what you see on the page - forms, buttons, text, login fields, CAPTCHAs
-2. **Detect Intervention Needed**: Identify when human help is required:
-   - Login pages (username/password fields)
-   - CAPTCHA challenges (image verification, reCAPTCHA, hCaptcha)
-   - Two-factor authentication prompts
-   - "Verify you're human" messages
-   - Cookie consent that blocks content
-   - Error pages requiring manual action
+## IMPORTANT: Visual Markers
+The screenshots you receive will have **Green Bounding Boxes with Numbers** overlaying interactive elements.
+- **IGNORE** these green boxes when describing the page aesthetics.
+- **USE** these numbers if asked to identify specific buttons (e.g., "The Login button is #12").
 
-3. **Identify Interactive Elements**: List clickable buttons, input fields, links relevant to job applications
-4. **Extract Text**: Read job titles, company names, requirements from the screenshot
+## Detection Priorities
+1. **Login Screens**: Look for "Sign In", "Join Now", or "Email" fields. If found, report: "LOGIN_DETECTED".
+2. **CAPTCHAs**: Look for puzzles or "I am not a robot". If found, report: "INTERVENTION_REQUIRED".
+3. **Easy Apply Modal**: Look for a modal window with "Next", "Review", or "Submit application".
+4. **Success**: Look for "Application sent" or "Your application has been submitted".
 
-When you detect a login page or CAPTCHA, respond with:
-{
-    "intervention_required": true,
-    "intervention_type": "login" | "captcha" | "2fa" | "verification",
-    "reason": "Description of what needs human action"
-}
-
-When the page is safe for automation:
-{
-    "intervention_required": false,
-    "page_type": "job_listing" | "application_form" | "search_results" | "company_page" | "other",
-    "elements": [list of interactive elements with descriptions],
-    "next_action": "suggested action"
-}
-
-Be concise but thorough. Focus on actionable information."""
+Output your analysis clearly: "Page is a LinkedIn Job Listing. Login required." or "Page is the Easy Apply modal."
+"""
 
 vision_agent = LlmAgent(
     model=get_vision_model(),
     name="vision_agent",
-    description="Analyzes browser screenshots to understand page content and detect when human intervention is needed for login or CAPTCHA",
+    description="Analyzes screenshots to detect Login pages, CAPTCHAs, or Application status.",
     instruction=VISION_INSTRUCTION,
+    tools=[take_screenshot],
 )
