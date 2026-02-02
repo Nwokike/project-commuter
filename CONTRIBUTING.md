@@ -1,42 +1,35 @@
 # Contributing to Project Commuter
 
-First off, thank you for considering contributing to Project Commuter! 🐜
+Thank you for your interest
 
-To keep this project accessible and safe for everyone, please follow these guidelines.
+We are building a precision tool. To maintain the quality and reliability of this agent, we enforce strict contribution guidelines.
 
-## 🛠️ How to Contribute
+## 🟢 Philosophy
+1.  **LinkedIn Only:** Do not submit PRs adding support for Indeed, Glassdoor, or other sites. We do one thing perfectly.
+2.  **Visual First:** Do not write code that relies on complex XPath or CSS selectors. If the AI can't "see" it via Visual SOM, improve the Vision Agent, not the selectors.
+3.  **Zero Persistence:** Do not add database dependencies (Postgres, SQLite). The app must remain stateless and cloud-native.
 
-### 1. Reporting Bugs
-If the bot gets stuck on a specific job board layout:
-1.  Check the **Activity Log** in your dashboard.
-2.  If the bot triggers an error, note the message.
-3.  Take a screenshot of the error log or the browser state if visible.
-4.  Open an Issue with the tag `[Bug]` and include the details.
+## 🛠️ Development Guidelines
 
-### 2. Suggesting Features
-Have an idea for a new Agent?
-* Open an Issue with the tag `[Feature Request]`.
-* Explain *why* this agent is needed (e.g., "Networking Agent to message recruiters").
+### Pull Requests
+* **Descriptive Titles:** Use conventional commits (e.g., `feat: add resume parsing`, `fix: stealth module import`).
+* **Test on Render:** Before submitting, ensure your code runs in a stateless environment (no local file writes).
 
-### 3. Submitting Pull Requests
-1.  **Fork** the repo and create your branch from `main`.
-2.  **Test** your changes locally.
-3.  Ensure you adhere to the **Privacy First** principle (no user data should ever leave the machine).
-4.  Submit your PR!
+### Style Guide
+* **Type Hinting:** All Python functions must be typed.
+    ```python
+    # Good
+    def search(query: str) -> dict: ...
+    
+    # Bad
+    def search(query): ...
+    ```
+* **Async/Await:** All I/O operations must be non-blocking.
 
-## 🧪 Development Setup
+## 🐛 Reporting Bugs
+If you find a case where the Visual SOM fails (e.g., clicks the wrong button):
+1.  Check the **Neural Feed** logs.
+2.  Take a screenshot of the "tagged" image if possible.
+3.  Open an issue with the tag `[Vision Failure]`.
 
-The project uses a modular Agent structure based on Google ADK.
-* `agents/`: Contains the logic for specific roles (Root, Scout, Vision, Ops).
-* `tools/`: Contains shared capabilities (Browser automation, Search).
-* `models/`: Configuration for LLMs (Groq).
-
-**Style Guide**:
-* Use `asyncio` for all I/O bound tasks.
-* Type hint every function (`def my_func(x: int) -> str:`).
-* Keep `server.py` clean; business logic belongs in `agents/`.
-
-## 📜 Code of Conduct
-
-* **Be Respectful**: We are all here to learn and build.
-* **Be Ethical**: Do not contribute code designed to spam, harass, or maliciously scrape platforms. This project is for personal automation only.
+Let's build the ultimate autonomous agent. 🎯
