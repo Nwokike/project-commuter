@@ -97,7 +97,7 @@ async def create_session():
     import uuid
     session_id = str(uuid.uuid4())[:8]
     
-    # Initialize with placeholder data so the AI doesn't crash on {user:full_name}
+    # Initialize with placeholder data
     initial_state = {
         "user:full_name": "Candidate",
         "user:email": "Not specified",
@@ -123,17 +123,14 @@ async def create_session():
 
 @app.post("/api/upload_cv")
 async def upload_cv(file: UploadFile = File(...)):
-    """
-    Parse a PDF CV and inject the data directly into the session state.
-    Uses Llama 8B (via LiteLLM) to extract structured data.
-    """
+    """Parse a PDF CV and inject data directly into session state."""
     global current_session_id
     
     if not current_session_id:
         await create_session()
         
     try:
-        # 1. Extract Text from PDF
+        # 1. Extract Text
         contents = await file.read()
         pdf_file = io.BytesIO(contents)
         reader = PdfReader(pdf_file)
@@ -143,14 +140,14 @@ async def upload_cv(file: UploadFile = File(...)):
             
         # 2. Parse with LLM
         prompt = f"""
-        Extract the following details from this CV text into a JSON object:
+        Extract details from this CV text into JSON:
         - full_name
         - email
         - phone
         - location
-        - job_titles (list of roles they can apply for)
-        - skills (list of top technical skills)
-        - experience_summary (a 3-sentence summary of their career)
+        - job_titles (list)
+        - skills (list)
+        - experience_summary (3 sentences)
         - education (latest degree)
 
         CV TEXT:
@@ -167,7 +164,7 @@ async def upload_cv(file: UploadFile = File(...)):
         
         extracted_data = json.loads(response.choices[0].message.content)
         
-        # 3. Update Session State
+        # 3. Update Session State DIRECTLY
         session = await session_service.get_session(
             app_name=APP_NAME,
             user_id=current_user_id,
@@ -195,7 +192,6 @@ async def upload_cv(file: UploadFile = File(...)):
 async def chat(message: ChatMessage):
     """Send a message to the agent and get a response."""
     global current_session_id
-    
     if not current_session_id:
         await create_session()
     
@@ -251,13 +247,12 @@ async def intervention_action(action: InterventionAction):
 
 @app.get("/api/intervention/status")
 async def intervention_status():
-    """Get current intervention mode status."""
     return {"intervention_mode": is_intervention_mode()}
 
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    """WebSocket for real-time updates."""
+    """WebSocket for real-time updates with CLEAN LOGS."""
     await websocket.accept()
     active_websockets.append(websocket)
     
@@ -272,28 +267,21 @@ async def websocket_endpoint(websocket: WebSocket):
             
             if data.get("type") == "chat":
                 message = data.get("message", "")
-                
-                await websocket.send_json({
-                    "type": "thinking",
-                    "message": "Processing your request..."
-                })
+                await websocket.send_json({"type": "thinking", "message": "Thinking..."})
                 
                 try:
                     global current_session_id
                     if not current_session_id:
                         await create_session()
                     
-                    content = types.Content(
-                        role="user",
-                        parts=[types.Part.from_text(text=message)]
-                    )
+                    content = types.Content(role="user", parts=[types.Part.from_text(text=message)])
                     
                     async for event in runner.run_async(
                         user_id=current_user_id,
                         session_id=current_session_id,
                         new_message=content
                     ):
-                        # Handle Text Response
+                        # 1. Handle Text Response
                         if hasattr(event, 'content') and event.content:
                             for part in event.content.parts:
                                 if hasattr(part, 'text') and part.text:
@@ -302,7 +290,7 @@ async def websocket_endpoint(websocket: WebSocket):
                                         "message": part.text
                                     })
                         
-                        # Handle Actions (Tools) - Clean up the log output
+                        # 2. Handle Actions (CLEANED)
                         if hasattr(event, 'actions') and event.actions:
                             actions_desc = []
                             try:
@@ -313,18 +301,12 @@ async def websocket_endpoint(websocket: WebSocket):
                                         desc = f"Use tool: {name}"
                                         if args:
                                             args_str = str(args)
-                                            if len(args_str) > 50:
-                                                args_str = args_str[:47] + "..."
+                                            if len(args_str) > 40:
+                                                args_str = args_str[:37] + "..."
                                             desc += f"({args_str})"
                                         actions_desc.append(desc)
-                                    elif hasattr(action, 'name'):
-                                        actions_desc.append(f"Calling: {action.name}")
-                                    else:
-                                        s = str(action)
-                                        if "skip_summarization" not in s: 
-                                            actions_desc.append(s[:50] + "..." if len(s) > 50 else s)
                             except:
-                                actions_desc.append("Thinking...")
+                                pass # Ignore parse errors
 
                             if actions_desc:
                                 await websocket.send_json({
@@ -332,27 +314,24 @@ async def websocket_endpoint(websocket: WebSocket):
                                     "actions": " | ".join(actions_desc)
                                 })
                         
-                        # Handle Agent Transfers (Reasoning steps)
+                        # 3. Handle Transfers
                         if hasattr(event, 'transfer_to_agent') and event.transfer_to_agent:
-                            await websocket.send_json({
-                                "type": "agent_action",
-                                "actions": f"Delegating to {event.transfer_to_agent}"
-                            })
-                    
+                            # Filter out internal "root_agent" transfer loops
+                            if event.transfer_to_agent != "root_agent":
+                                await websocket.send_json({
+                                    "type": "agent_action",
+                                    "actions": f"Delegating to {event.transfer_to_agent}"
+                                })
+
                 except Exception as e:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": str(e)
-                    })
+                    await websocket.send_json({"type": "error", "message": str(e)})
             
             elif data.get("type") == "intervention":
+                # (Same logic as before)
                 action_data = data.get("action", {})
                 action = InterventionAction(**action_data)
                 result = await intervention_action(action)
-                await websocket.send_json({
-                    "type": "intervention_result",
-                    "result": result
-                })
+                await websocket.send_json({"type": "intervention_result", "result": result})
     
     except WebSocketDisconnect:
         active_websockets.remove(websocket)
@@ -363,6 +342,5 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
-    # Use PORT environment variable for Render, default to 5000 for local
     port = int(os.environ.get("PORT", 5000))
     uvicorn.run(app, host="0.0.0.0", port=port)
