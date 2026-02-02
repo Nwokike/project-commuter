@@ -3,11 +3,11 @@
     --bg-panel: #1e212b;
     --bg-console: #000000;
     --bg-input: #292d3e;
-    --accent: #10b981; /* Sniper Green */
+    --accent: #10b981;
     --accent-hover: #059669;
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;
-    --text-console: #4ade80; /* Matrix Green */
+    --text-console: #4ade80;
     --border: #334155;
     --font-main: 'Inter', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', monospace;
@@ -19,14 +19,16 @@ body {
     font-family: var(--font-main);
     background: var(--bg-dark);
     color: var(--text-primary);
-    height: 100vh;
-    overflow: hidden; /* Prevent body scroll */
+    /* CRITICAL FIX: Use dynamic viewport height for mobile browsers */
+    height: 100dvh; 
+    overflow: hidden;
 }
 
 .app-container {
     display: flex;
     flex-direction: column;
     height: 100%;
+    width: 100%;
 }
 
 /* --- Header --- */
@@ -57,24 +59,25 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    position: relative;
 }
 
-/* 1. Browser View (Top) */
+/* 1. Browser View */
 .browser-view {
-    flex: 4; /* Takes 40% height approx */
+    flex: 4;
     background: #000;
     position: relative;
     display: flex;
     flex-direction: column;
     border-bottom: 1px solid var(--border);
-    min-height: 200px;
+    min-height: 0; /* Allow shrinking */
 }
 
 .browser-header {
     position: absolute; top: 0; left: 0; right: 0;
     padding: 8px; z-index: 10;
     display: flex; justify-content: space-between;
-    pointer-events: none; /* Let clicks pass through */
+    pointer-events: none;
 }
 .view-title { 
     background: rgba(0,0,0,0.6); padding: 2px 8px; border-radius: 4px; 
@@ -88,10 +91,15 @@ body {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    position: relative;
 }
-.screenshot { max-width: 100%; max-height: 100%; object-fit: contain; }
+.screenshot { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: contain; 
+}
 
-/* 2. Neural Feed (Middle Console) */
+/* 2. Neural Feed */
 .neural-feed {
     background: var(--bg-console);
     border-bottom: 1px solid var(--border);
@@ -101,8 +109,8 @@ body {
     flex-shrink: 0;
 }
 
-.neural-feed.collapsed { height: 32px; } /* Minimized state */
-.neural-feed:not(.collapsed) { height: 150px; } /* Expanded state */
+.neural-feed.collapsed { height: 32px; }
+.neural-feed:not(.collapsed) { height: 150px; }
 
 .feed-header {
     height: 32px;
@@ -121,10 +129,9 @@ body {
     font-family: var(--font-mono);
     font-size: 0.75rem;
     display: flex;
-    flex-direction: column; /* Normal stack */
+    flex-direction: column;
 }
 
-/* Inserted items will use JS to prepend, so first child is top */
 .activity-item {
     padding: 4px 0;
     border-bottom: 1px solid #111;
@@ -133,13 +140,14 @@ body {
 .activity-item.highlight { color: var(--text-console); }
 .activity-item .time { color: #555; margin-right: 8px; }
 
-/* 3. Chat Section (Bottom) */
+/* 3. Chat Section */
 .chat-section {
-    flex: 5; /* Takes rest of height */
+    flex: 5;
     background: var(--bg-dark);
     display: flex;
     flex-direction: column;
     position: relative;
+    min-height: 0; /* Crucial for flex shrinking */
 }
 
 .chat-messages {
@@ -149,6 +157,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    padding-bottom: 10px;
 }
 
 .message { display: flex; gap: 10px; max-width: 90%; }
@@ -161,41 +170,51 @@ body {
 .message.user .content { background: var(--accent); color: #fff; }
 .message.thinking .content { font-style: italic; color: var(--text-secondary); background: none; }
 
-/* Input Area */
+/* Input Area - Fixed Visibility */
 .chat-input-container {
     padding: 10px;
     background: var(--bg-panel);
     border-top: 1px solid var(--border);
-    display: flex; gap: 10px; align-items: flex-end;
+    display: flex; 
+    gap: 10px; 
+    align-items: center; /* Changed from flex-end */
+    flex-shrink: 0; /* Never shrink this */
 }
+
 #chat-input {
     flex: 1; background: var(--bg-input); border: 1px solid var(--border);
-    border-radius: 20px; padding: 8px 16px; color: #fff;
-    resize: none; max-height: 80px; font-family: inherit;
+    border-radius: 20px; padding: 10px 16px; color: #fff;
+    resize: none; height: 44px; /* Fixed height for consistency */
+    font-family: inherit;
 }
 .btn-send {
     background: var(--accent); color: #fff; border-radius: 50%;
-    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
 }
 
-/* Intervention Controls (Floating Bar) */
+/* Intervention Controls */
 .intervention-bar {
     position: absolute; bottom: 70px; left: 10px; right: 10px;
-    background: rgba(0,0,0,0.9); padding: 10px; border-radius: 8px;
+    background: rgba(0,0,0,0.95); padding: 10px; border-radius: 8px;
     display: flex; gap: 8px; backdrop-filter: blur(4px);
     border: 1px solid var(--accent);
+    z-index: 100;
 }
 .intervention-bar input {
     flex: 1; background: #222; border: 1px solid #444; padding: 8px; color: #fff;
 }
 
-/* Utilities */
 .btn { border: none; cursor: pointer; border-radius: 4px; font-weight: 600; }
 .btn-primary { background: var(--accent); color: #fff; padding: 6px 12px; }
+.btn-secondary { background: #444; color: #fff; padding: 6px 12px; }
+.btn-success { background: var(--accent); color: #fff; padding: 6px 12px; }
 .hidden { display: none !important; }
 
 /* Mobile Tweaks */
 @media (max-width: 600px) {
-    .browser-view { flex: 3; } /* Slightly smaller browser on phone */
+    .browser-view { flex: 3; }
     .chat-section { flex: 4; }
+    .logo-area h1 { font-size: 1rem; }
+    .badge-beta { display: none; } /* Save space */
 }
