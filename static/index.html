@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Commuter - AI Job Agent</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Project Commuter - LinkedIn Sniper</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
     <link rel="stylesheet" href="/static/css/styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 </head>
@@ -12,58 +12,69 @@
     <div class="app-container">
         <header class="header">
             <div class="logo-area">
-                <h1>Project Commuter</h1>
-                <span class="badge-beta">BETA</span>
+                <h1>Commuter</h1>
+                <span class="badge-beta">SNIPER</span>
             </div>
-            <div class="status-bar">
-                <span id="connection-status" class="status disconnected">Disconnected</span>
-                <span id="intervention-badge" class="intervention-badge hidden">⚠️ INTERVENTION REQUIRED</span>
+            
+            <div class="header-actions">
+                <input type="file" id="cv-upload-input" accept=".pdf" style="display: none;">
+                <button id="upload-cv-btn" class="btn btn-primary btn-sm">
+                    <span>📄 Upload CV</span>
+                </button>
+                <div id="connection-status" class="status-dot disconnected" title="Disconnected"></div>
             </div>
         </header>
 
         <main class="main-content">
+            
             <section class="browser-view">
                 <div class="browser-header">
-                    <span class="view-title">Live Browser Feed</span>
+                    <span class="view-title">Live Target</span>
                     <div class="browser-controls">
-                        <button id="screenshot-btn" class="btn btn-icon" title="Refresh Screenshot">🔄</button>
-                        <button id="pause-btn" class="btn btn-warning btn-sm">Pause</button>
-                        <button id="resume-btn" class="btn btn-success btn-sm hidden">Resume</button>
+                        <button id="intervention-toggle" class="btn btn-icon hidden" title="Manual Control">⚠️ Take Control</button>
                     </div>
                 </div>
                 <div class="browser-content" id="browser-content">
                     <div class="placeholder">
                         <div class="loader"></div>
-                        <p>Waiting for automation...</p>
+                        <p>Waiting for target...</p>
                     </div>
                     <img id="screenshot-img" class="screenshot hidden" alt="Browser Screenshot">
+                    
                     <div id="click-overlay" class="click-overlay hidden"></div>
                 </div>
-                
-                <div class="intervention-controls hidden" id="intervention-controls">
-                    <input type="text" id="type-input" placeholder="Type here to send keys to browser..." autocomplete="off">
-                    <button id="send-text-btn" class="btn btn-primary">Send Text</button>
+            </section>
+
+            <section class="neural-feed collapsed" id="neural-feed-panel">
+                <div class="feed-header" id="feed-toggle">
+                    <span>🧠 Neural Matrix</span>
+                    <span class="toggle-icon">▼</span>
                 </div>
+                <div id="activity-log" class="activity-log">
+                    </div>
             </section>
 
             <section class="chat-section">
                 <div class="chat-messages" id="chat-messages">
                     <div class="message system">
-                        <div class="avatar">🤖</div>
+                        <div class="avatar">🎯</div>
                         <div class="content">
-                            <p><strong>Welcome to Project Commuter!</strong></p>
-                            <p>I'm your autonomous agent. I can browse the web, research companies, and apply for jobs.</p>
-                            <p>Try asking:</p>
-                            <ul>
-                                <li>"Who is OpenAI?"</li>
-                                <li>"Search for Python jobs in Lagos"</li>
-                                <li>"Apply to the first job found"</li>
-                            </ul>
+                            <p><strong>System Ready.</strong></p>
+                            <p>1. Upload your CV (PDF).</p>
+                            <p>2. Log in to LinkedIn manually.</p>
+                            <p>3. Command: "Apply to python jobs in London".</p>
                         </div>
                     </div>
                 </div>
+                
+                <div id="intervention-controls" class="intervention-bar hidden">
+                    <input type="text" id="type-input" placeholder="Type text to send..." autocomplete="off">
+                    <button id="send-text-btn" class="btn btn-secondary">Send</button>
+                    <button id="resume-btn" class="btn btn-success">Resume AI</button>
+                </div>
+
                 <div class="chat-input-container">
-                    <textarea id="chat-input" placeholder="Message Project Commuter..." rows="1"></textarea>
+                    <textarea id="chat-input" placeholder="Command the agent..." rows="1"></textarea>
                     <button id="send-btn" class="btn btn-send">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="22" y1="2" x2="11" y2="13"></line>
@@ -72,46 +83,8 @@
                     </button>
                 </div>
             </section>
+
         </main>
-
-        <aside class="sidebar">
-            <div class="panel activity-panel">
-                <div class="panel-header">
-                    <h3>Neural Feed</h3>
-                    <span class="pulse-dot"></span>
-                </div>
-                <div id="activity-log" class="activity-log">
-                    <div class="activity-item system">System initialized. Waiting for input...</div>
-                </div>
-            </div>
-
-            <div class="panel profile-panel">
-                <h3>User Profile</h3>
-                <form id="profile-form">
-                    <div class="form-group">
-                        <label>Full Name</label>
-                        <input type="text" id="full-name" placeholder="Required for apps">
-                    </div>
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" id="email" placeholder="Required for apps">
-                    </div>
-                    <div class="form-group">
-                        <label>Location</label>
-                        <input type="text" id="location" placeholder="e.g. London, UK">
-                    </div>
-                    <div class="form-group">
-                        <label>Job Titles</label>
-                        <input type="text" id="job-titles" placeholder="Engineer, Designer...">
-                    </div>
-                    <div class="form-group">
-                        <label>Skills</label>
-                        <textarea id="skills" placeholder="Python, React, AWS..." rows="2"></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-secondary btn-full">Save Profile</button>
-                </form>
-            </div>
-        </aside>
     </div>
 
     <script src="/static/js/app.js"></script>
