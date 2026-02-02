@@ -1,371 +1,312 @@
-// --- CONFIGURATION ---
-const statusIndicator = document.getElementById('system-status-indicator');
-const connectionStatus = document.getElementById('connection-status');
-const feedContainer = document.getElementById('neural-feed');
-const liveView = document.getElementById('live-view');
-let ws;
-let reconnectTimer;
+class ProjectCommuter {
+    constructor() {
+        this.ws = null;
+        this.interventionMode = false;
+        this.init();
+    }
 
-// --- THEME ENGINE ---
-function initTheme() {
-    const savedTheme = localStorage.getItem('theme') || 'dark';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    updateThemeIcon(savedTheme);
-}
+    init() {
+        this.connectWebSocket();
+        this.setupEventListeners();
+    }
 
-function toggleTheme() {
-    const current = document.documentElement.getAttribute('data-theme');
-    const next = current === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    localStorage.setItem('theme', next);
-    updateThemeIcon(next);
-}
-
-function updateThemeIcon(theme) {
-    const btn = document.querySelector('.theme-toggle');
-    btn.innerHTML = theme === 'dark' ? '☀' : '☾';
-}
-
-// --- WEBSOCKET ---
-function connect() {
-    clearTimeout(reconnectTimer);
-    connectionStatus.innerText = "CONNECTING...";
-    connectionStatus.style.color = "var(--text-secondary)";
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${window.location.host}/ws/feed`);
-
-    ws.onopen = () => {
-        connectionStatus.innerText = "ONLINE";
-        connectionStatus.style.color = "var(--success)";
-        addLog("System", "Uplink established.", "system-msg");
-    };
-
-    ws.onmessage = (event) => {
-        if (event.data === "pong") return;
-        try {
+    connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        
+        this.ws = new WebSocket(wsUrl);
+        
+        this.ws.onopen = () => {
+            this.updateConnectionStatus(true);
+            this.addActivity('Connected to server');
+        };
+        
+        this.ws.onclose = () => {
+            this.updateConnectionStatus(false);
+            this.addActivity('Disconnected from server');
+            setTimeout(() => this.connectWebSocket(), 3000);
+        };
+        
+        this.ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            this.addActivity('Connection error');
+        };
+        
+        this.ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            handleMessage(data);
-        } catch (e) {
-            addLog("System", event.data, "text-secondary");
+            this.handleMessage(data);
+        };
+    }
+
+    handleMessage(data) {
+        switch (data.type) {
+            case 'connected':
+                this.addActivity(data.message);
+                break;
+            
+            case 'screenshot':
+                this.updateScreenshot(data.data);
+                break;
+            
+            case 'thinking':
+                this.addChatMessage(data.message, 'thinking');
+                this.addActivity('Agent is thinking...');
+                break;
+            
+            case 'agent_response':
+                this.removeThinkingMessages();
+                this.addChatMessage(data.message, 'agent');
+                this.addActivity('Agent responded');
+                this.checkForIntervention(data.message);
+                break;
+            
+            case 'agent_action':
+                this.addActivity(`Action: ${data.actions}`);
+                break;
+            
+            case 'intervention_result':
+                if (data.result.screenshot_base64) {
+                    this.updateScreenshot(data.result.screenshot_base64);
+                }
+                break;
+            
+            case 'error':
+                this.addChatMessage(`Error: ${data.message}`, 'system');
+                this.addActivity(`Error: ${data.message}`);
+                break;
         }
-    };
-
-    ws.onclose = () => {
-        connectionStatus.innerText = "OFFLINE";
-        connectionStatus.style.color = "var(--danger)";
-        reconnectTimer = setTimeout(connect, 3000);
-    };
-
-    setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) ws.send("ping");
-    }, 10000);
-}
-
-function handleMessage(data) {
-    if (data.type === 'log') {
-        addLog(data.agent, data.payload, getAgentClass(data.agent));
-    } else if (data.type === 'status') {
-        updateStatus(data.payload);
-    } else if (data.type === 'image_update') {
-        liveView.src = `/latest_view.png?t=${new Date().getTime()}`;
     }
-}
 
-function getAgentClass(agentName) {
-    if (agentName === 'User') return 'user-msg';
-    if (agentName === 'System') return 'system-msg';
-    return '';
-}
-
-function addLog(agent, text, cssClass) {
-    const div = document.createElement('div');
-    div.className = `log-entry ${cssClass}`;
-
-    // prettier timestamp
-    const now = new Date();
-    const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-
-    div.innerHTML = `<span style="opacity:0.6; font-size:11px; margin-right:8px">[${time}]</span><strong>${agent}</strong>: ${text}`;
-    feedContainer.prepend(div);
-}
-
-function updateStatus(status) {
-    // Small indicator color change
-    if (status === 'RUNNING') {
-        statusIndicator.style.backgroundColor = "var(--success)";
-        statusIndicator.style.boxShadow = "0 0 10px var(--success)";
-    } else if (status === 'STOPPED') {
-        statusIndicator.style.backgroundColor = "var(--danger)";
-        statusIndicator.style.boxShadow = "none";
-    } else {
-        statusIndicator.style.backgroundColor = "var(--text-secondary)";
+    checkForIntervention(message) {
+        const lowerMessage = message.toLowerCase();
+        if (lowerMessage.includes('intervention') || 
+            lowerMessage.includes('captcha') || 
+            lowerMessage.includes('login') ||
+            lowerMessage.includes('verify')) {
+            this.setInterventionMode(true);
+        }
     }
-}
 
-// --- API ACTIONS ---
-async function fetchState() {
-    try {
-        const response = await fetch('/api/state');
-        const data = await response.json();
-
-        // Config placeholders
-        if (data.query) document.getElementById('config-query').value = data.query;
-
-        // CV Status
-        const cvBadge = document.getElementById('cv-status');
-        if (data.cv_loaded) {
-            cvBadge.innerText = "LOADED";
-            cvBadge.className = "status-badge loaded";
+    setInterventionMode(active) {
+        this.interventionMode = active;
+        const badge = document.getElementById('intervention-badge');
+        const controls = document.getElementById('intervention-controls');
+        const overlay = document.getElementById('click-overlay');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resumeBtn = document.getElementById('resume-btn');
+        
+        if (active) {
+            badge.classList.remove('hidden');
+            controls.classList.remove('hidden');
+            overlay.classList.remove('hidden');
+            pauseBtn.classList.add('hidden');
+            resumeBtn.classList.remove('hidden');
+            this.addActivity('INTERVENTION MODE ACTIVE');
         } else {
-            cvBadge.innerText = "MISSING";
-            cvBadge.className = "status-badge missing";
+            badge.classList.add('hidden');
+            controls.classList.add('hidden');
+            overlay.classList.add('hidden');
+            pauseBtn.classList.remove('hidden');
+            resumeBtn.classList.add('hidden');
+            this.addActivity('Intervention mode ended');
         }
-
-        // Stats
-        if (data.stats) {
-            document.getElementById('stat-total').innerText = data.stats.total;
-            document.getElementById('stat-pending').innerText = data.stats.pending;
-            document.getElementById('stat-applied').innerText = data.stats.applied;
-        }
-
-        updateStatus(data.status);
-
-    } catch (e) {
-        console.error("State Fetch Error", e);
     }
-}
 
-async function saveConfig(key, value) {
-    try {
-        await fetch('/api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key, value })
+    updateScreenshot(base64Data) {
+        const img = document.getElementById('screenshot-img');
+        const placeholder = document.querySelector('.placeholder');
+        
+        img.src = `data:image/png;base64,${base64Data}`;
+        img.classList.remove('hidden');
+        if (placeholder) {
+            placeholder.style.display = 'none';
+        }
+    }
+
+    setupEventListeners() {
+        const sendBtn = document.getElementById('send-btn');
+        const chatInput = document.getElementById('chat-input');
+        const profileForm = document.getElementById('profile-form');
+        const screenshotBtn = document.getElementById('screenshot-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const resumeBtn = document.getElementById('resume-btn');
+        const sendTextBtn = document.getElementById('send-text-btn');
+        const typeInput = document.getElementById('type-input');
+        const screenshotImg = document.getElementById('screenshot-img');
+        const clickOverlay = document.getElementById('click-overlay');
+
+        sendBtn.addEventListener('click', () => this.sendMessage());
+        
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
         });
-        addLog("System", `Config [${key}] saved.`, "system-msg");
-    } catch (e) {
-        addLog("System", "Save failed.", "error-msg");
+
+        profileForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.saveProfile();
+        });
+
+        screenshotBtn.addEventListener('click', () => this.requestScreenshot());
+        pauseBtn.addEventListener('click', () => this.sendInterventionAction({ action: 'pause' }));
+        resumeBtn.addEventListener('click', () => {
+            this.sendInterventionAction({ action: 'resume' });
+            this.setInterventionMode(false);
+            this.sendMessage('resume');
+        });
+
+        sendTextBtn.addEventListener('click', () => {
+            const text = typeInput.value;
+            if (text) {
+                this.sendInterventionAction({ action: 'type', text: text });
+                typeInput.value = '';
+            }
+        });
+
+        typeInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const text = typeInput.value;
+                if (text) {
+                    this.sendInterventionAction({ action: 'type', text: text });
+                    typeInput.value = '';
+                }
+            }
+        });
+
+        screenshotImg.addEventListener('click', (e) => {
+            if (!this.interventionMode) return;
+            
+            const rect = screenshotImg.getBoundingClientRect();
+            const scaleX = screenshotImg.naturalWidth / rect.width;
+            const scaleY = screenshotImg.naturalHeight / rect.height;
+            
+            const x = Math.round((e.clientX - rect.left) * scaleX);
+            const y = Math.round((e.clientY - rect.top) * scaleY);
+            
+            this.sendInterventionAction({ action: 'click', x: x, y: y });
+            this.addActivity(`Clicked at (${x}, ${y})`);
+        });
+
+        clickOverlay.addEventListener('click', (e) => {
+            const img = document.getElementById('screenshot-img');
+            const rect = img.getBoundingClientRect();
+            const scaleX = img.naturalWidth / rect.width;
+            const scaleY = img.naturalHeight / rect.height;
+            
+            const x = Math.round((e.clientX - rect.left) * scaleX);
+            const y = Math.round((e.clientY - rect.top) * scaleY);
+            
+            this.sendInterventionAction({ action: 'click', x: x, y: y });
+            this.addActivity(`Clicked at (${x}, ${y})`);
+        });
     }
-}
 
-async function uploadCV(input) {
-    if (!input.files.length) return;
-    const formData = new FormData();
-    formData.append("file", input.files[0]);
-
-    addLog("System", "Uploading data...", "text-secondary");
-    try {
-        const res = await fetch('/api/upload_cv', { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.status === 'success') {
-            addLog("System", "Identity Module Updated.", "system-msg");
-            fetchState();
+    sendMessage() {
+        const chatInput = document.getElementById('chat-input');
+        const message = chatInput.value.trim();
+        
+        if (!message) return;
+        
+        this.addChatMessage(message, 'user');
+        chatInput.value = '';
+        
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+                type: 'chat',
+                message: message
+            }));
+            this.addActivity('Message sent');
         } else {
-            addLog("System", "Upload Error: " + data.message, "error-msg");
+            this.addChatMessage('Not connected to server', 'system');
         }
-    } catch (e) {
-        addLog("System", "Upload Failed.", "error-msg");
     }
-}
 
-async function sendCommand(cmd) {
-    try {
-        await fetch('/api/command', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ command: cmd })
-        });
-        addLog("User", `CMD: ${cmd}`, "user-msg");
-    } catch (e) {
-        addLog("System", "Command failed.", "error-msg");
+    sendInterventionAction(action) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({
+                type: 'intervention',
+                action: action
+            }));
+        }
     }
-}
 
-function handleChat(e) {
-    e.preventDefault();
-    const input = document.getElementById('chat-input');
-    if (input.value.trim()) {
-        sendCommand(input.value.trim());
-        input.value = '';
+    requestScreenshot() {
+        this.sendInterventionAction({ action: 'screenshot' });
     }
-}
 
-// --- BOOTSTRAP ---
-initTheme();
-connect();
-fetchState();
-// Poll state for stats updates every 5s
-setInterval(fetchState, 5000);
-
-function connect() {
-    connectionStatus.innerText = "CONNECTING...";
-    connectionStatus.className = "text-xs text-yellow-500";
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${window.location.host}/ws/feed`);
-
-    ws.onopen = () => {
-        connectionStatus.innerText = "ONLINE";
-        connectionStatus.className = "text-xs text-green-500 animate-pulse";
-        addLog("System", "Uplink established.", "system-msg");
-    };
-
-    ws.onmessage = (event) => {
-        if (event.data === "pong") return;
+    async saveProfile() {
+        const profile = {
+            full_name: document.getElementById('full-name').value,
+            email: document.getElementById('email').value,
+            phone: document.getElementById('phone').value,
+            location: document.getElementById('location').value,
+            job_titles: document.getElementById('job-titles').value.split(',').map(s => s.trim()).filter(s => s),
+            skills: document.getElementById('skills').value.split(',').map(s => s.trim()).filter(s => s)
+        };
 
         try {
-            const data = JSON.parse(event.data);
-            handleMessage(data);
-        } catch (e) {
-            // If simple text
-            addLog("System", event.data, "text-gray-400");
+            const response = await fetch('/api/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(profile)
+            });
+            
+            if (response.ok) {
+                this.addActivity('Profile saved');
+                this.addChatMessage('Your profile has been saved!', 'system');
+            }
+        } catch (error) {
+            console.error('Failed to save profile:', error);
         }
-    };
-
-    ws.onclose = () => {
-        connectionStatus.innerText = "OFFLINE";
-        connectionStatus.className = "text-xs text-red-500";
-        setTimeout(connect, 3000); // Retry connection
-    };
-
-    // Keep alive
-    setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) ws.send("ping");
-    }, 10000);
-}
-
-function handleMessage(data) {
-    if (data.type === 'log') {
-        addLog(data.agent, data.payload, getAgentClass(data.agent));
-    } else if (data.type === 'status') {
-        updateStatus(data.payload);
-    } else if (data.type === 'image_update') {
-        // Refresh image with cache buster
-        liveView.src = `/latest_view.png?t=${new Date().getTime()}`;
     }
-}
 
-function getAgentClass(agentName) {
-    if (agentName === 'User') return 'user-msg';
-    if (agentName === 'System') return 'system-msg';
-    return 'text-white';
-}
-
-function addLog(agent, text, cssClass) {
-    const div = document.createElement('div');
-    div.className = `log-entry ${cssClass} text-sm`;
-
-    // Parse timestamp if needed, for now just simple
-    const time = new Date().toLocaleTimeString([], { hour12: false });
-    div.innerHTML = `<span class="opacity-50 mr-2">[${time}]</span> <span class="font-bold">${agent}:</span> ${text}`;
-
-    feedContainer.prepend(div);
-    // feedContainer.scrollTop = 0; // Optional: Force scroll to top? Default is top.
-}
-
-function updateStatus(status) {
-    statusIndicator.innerText = status;
-    if (status === 'RUNNING') {
-        statusIndicator.className = "px-3 py-1 text-xs font-bold bg-green-900 text-green-100 rounded animate-pulse";
-    } else if (status === 'STOPPED') {
-        statusIndicator.className = "px-3 py-1 text-xs font-bold bg-red-900 text-red-100 rounded";
-    } else {
-        statusIndicator.className = "px-3 py-1 text-xs font-bold bg-gray-800 text-gray-300 rounded";
+    addChatMessage(message, type) {
+        const container = document.getElementById('chat-messages');
+        const div = document.createElement('div');
+        div.className = `message ${type}`;
+        div.innerHTML = `<p>${this.escapeHtml(message)}</p>`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
     }
-}
 
-async function sendCommand(cmd) {
-    try {
-        const response = await fetch('/api/command', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ command: cmd })
-        });
-        const res = await response.json();
-        addLog("User", `Command Sent: ${cmd}`, "user-msg");
-    } catch (e) {
-        addLog("System", "Failed to send command.", "error-msg");
+    removeThinkingMessages() {
+        const messages = document.querySelectorAll('.message.thinking');
+        messages.forEach(m => m.remove());
     }
-}
 
-function handleChat(e) {
-    e.preventDefault();
-    const input = document.getElementById('chat-input');
-    const cmd = input.value.trim();
-    if (cmd) {
-        sendCommand(cmd);
-        input.value = '';
+    addActivity(message) {
+        const log = document.getElementById('activity-log');
+        const time = new Date().toLocaleTimeString();
+        const div = document.createElement('div');
+        div.className = 'activity-item';
+        div.textContent = `[${time}] ${message}`;
+        log.insertBefore(div, log.firstChild);
+        
+        while (log.children.length > 50) {
+            log.removeChild(log.lastChild);
+        }
     }
-}
 
-// Start
-connect();
-fetchState();
-
-async function fetchState() {
-    try {
-        const response = await fetch('/api/state');
-        const data = await response.json();
-
-        // Update Query
-        document.getElementById('config-query').value = data.query;
-
-        // Update CV Status
-        const cvStatus = document.getElementById('cv-status');
-        if (data.cv_loaded) {
-            cvStatus.innerText = "LOADED";
-            cvStatus.className = "text-xs font-bold text-neon-green";
+    updateConnectionStatus(connected) {
+        const status = document.getElementById('connection-status');
+        if (connected) {
+            status.textContent = 'Connected';
+            status.className = 'status connected';
         } else {
-            cvStatus.innerText = "MISSING";
-            cvStatus.className = "text-xs font-bold text-red-500";
+            status.textContent = 'Disconnected';
+            status.className = 'status disconnected';
         }
+    }
 
-        // Update System Status
-        updateStatus(data.status);
-
-    } catch (e) {
-        console.error("Failed to fetch state:", e);
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 }
 
-async function saveConfig(key, value) {
-    try {
-        const response = await fetch('/api/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key, value })
-        });
-        await response.json();
-        addLog("System", `Configuration Updated: ${key}`, "system-msg");
-    } catch (e) {
-        addLog("System", "Failed to save configuration.", "error-msg");
-    }
-}
-
-async function uploadCV(input) {
-    if (input.files.length === 0) return;
-
-    const file = input.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-
-    addLog("System", "Uploading CV...", "text-gray-400");
-
-    try {
-        const response = await fetch('/api/upload_cv', {
-            method: 'POST',
-            body: formData
-        });
-        const data = await response.json();
-
-        if (data.status === "success") {
-            addLog("System", "CV Ingested Successfully.", "system-msg");
-            fetchState(); // Refresh status
-        } else {
-            addLog("System", `CV Upload Error: ${data.message}`, "error-msg");
-        }
-    } catch (e) {
-        addLog("System", "CV Upload Failed.", "error-msg");
-    }
-}
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new ProjectCommuter();
+});

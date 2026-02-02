@@ -1,131 +1,87 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
-
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MISSION CONTROL // PROJECT COMMUTER</title>
-    <link rel="stylesheet" href="/css/styles.css">
+    <title>Project Commuter - AI Job Application Assistant</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
 </head>
-
 <body>
-
-    <!-- BACKGROUND EFFECTS -->
-    <div class="background-noise"></div>
-    <div class="background-glow"></div>
-
-    <!-- MAIN GRID LAYOUT -->
     <div class="app-container">
-
-        <!-- HEADER -->
-        <header class="glass-panel header">
-            <div class="logo-section">
-                <div class="status-indicator-light" id="system-status-indicator"></div>
-                <h1>PROJECT COMMUTER <span class="version">v2.1</span></h1>
-            </div>
-
-            <div class="header-controls">
-                <div class="connection-pill" id="connection-status">OFFLINE</div>
-                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Light/Dark Mode">
-                    <span class="icon">☀</span>
-                </button>
+        <header class="header">
+            <h1>Project Commuter</h1>
+            <div class="status-bar">
+                <span id="connection-status" class="status disconnected">Disconnected</span>
+                <span id="intervention-badge" class="intervention-badge hidden">INTERVENTION REQUIRED</span>
             </div>
         </header>
 
-        <!-- LEFT SIDEBAR: METRICS & CONFIG -->
-        <aside class="sidebar-left">
-
-            <!-- METRICS GRID -->
-            <div class="metrics-grid">
-                <div class="metric-card glass-panel">
-                    <label>Job Queue</label>
-                    <div class="value" id="stat-total">0</div>
-                </div>
-                <div class="metric-card glass-panel">
-                    <label>Pending</label>
-                    <div class="value" id="stat-pending">0</div>
-                </div>
-                <div class="metric-card glass-panel highlight">
-                    <label>Applied</label>
-                    <div class="value" id="stat-applied">0</div>
-                </div>
-            </div>
-
-            <!-- CONFIGURATION PANEL -->
-            <div class="config-panel glass-panel">
-                <h2>MISSION PARAMETERS</h2>
-
-                <div class="input-group">
-                    <label>Target Directive</label>
-                    <div class="row">
-                        <input type="text" id="config-query" placeholder="e.g. Senior Agent">
-                        <button
-                            onclick="saveConfig('search_query', document.getElementById('config-query').value)">SAVE</button>
+        <main class="main-content">
+            <section class="browser-view">
+                <div class="browser-header">
+                    <span>Browser View</span>
+                    <div class="browser-controls">
+                        <button id="screenshot-btn" class="btn btn-small">Refresh</button>
+                        <button id="pause-btn" class="btn btn-small btn-warning">Pause</button>
+                        <button id="resume-btn" class="btn btn-small btn-success hidden">Resume</button>
                     </div>
                 </div>
-
-                <div class="input-group">
-                    <div class="row-between">
-                        <label>Identity Module (CV)</label>
-                        <span id="cv-status" class="status-badge missing">MISSING</span>
+                <div class="browser-content" id="browser-content">
+                    <div class="placeholder">
+                        <p>Browser screenshots will appear here when automation starts</p>
                     </div>
-                    <input type="file" id="cv-upload" hidden onchange="uploadCV(this)" accept=".pdf">
-                    <button class="btn-upload" onclick="document.getElementById('cv-upload').click()">
-                        UPLOAD DATA
-                    </button>
+                    <img id="screenshot-img" class="screenshot hidden" alt="Browser Screenshot">
+                    <div id="click-overlay" class="click-overlay hidden"></div>
                 </div>
-            </div>
-
-            <!-- MANUAL OVERRIDE -->
-            <div class="control-panel glass-panel">
-                <h2>MANUAL OVERRIDE</h2>
-                <div class="btn-group">
-                    <button class="btn-start" onclick="sendCommand('START')">ENGAGE</button>
-                    <button class="btn-stop" onclick="sendCommand('STOP')">ABORT</button>
+                <div class="intervention-controls hidden" id="intervention-controls">
+                    <input type="text" id="type-input" placeholder="Type text here and press Enter...">
+                    <button id="send-text-btn" class="btn">Send Text</button>
                 </div>
-            </div>
+            </section>
 
-        </aside>
-
-        <!-- CENTER: NEURAL FEED -->
-        <main class="neural-feed-container glass-panel">
-            <div class="feed-header">
-                <h2>NEURAL UPLINK</h2>
-                <span class="live-tag">LIVE STREAM</span>
-            </div>
-            <div id="neural-feed" class="feed-content">
-                <!-- Logs injected here -->
-            </div>
-            <div class="command-input">
-                <span class="prompt">></span>
-                <form onsubmit="handleChat(event)">
-                    <input type="text" id="chat-input" placeholder="Inject command..." autocomplete="off">
-                </form>
-            </div>
+            <section class="chat-section">
+                <div class="chat-messages" id="chat-messages">
+                    <div class="message system">
+                        <p>Welcome to Project Commuter! I'm your AI job application assistant.</p>
+                        <p>You can:</p>
+                        <ul>
+                            <li>Chat with me normally</li>
+                            <li>Ask me to search for jobs</li>
+                            <li>Upload your CV and I'll help apply</li>
+                        </ul>
+                        <p>Just type below to get started!</p>
+                    </div>
+                </div>
+                <div class="chat-input-container">
+                    <textarea id="chat-input" placeholder="Type your message..." rows="2"></textarea>
+                    <button id="send-btn" class="btn btn-primary">Send</button>
+                </div>
+            </section>
         </main>
 
-        <!-- RIGHT SIDEBAR: VISUAL CORTEX -->
-        <aside class="sidebar-right glass-panel">
-            <div class="visual-header">
-                <h2>VISUAL CORTEX</h2>
+        <aside class="sidebar">
+            <div class="panel">
+                <h3>Your Profile</h3>
+                <form id="profile-form">
+                    <input type="text" id="full-name" placeholder="Full Name">
+                    <input type="email" id="email" placeholder="Email">
+                    <input type="text" id="phone" placeholder="Phone">
+                    <input type="text" id="location" placeholder="Location">
+                    <input type="text" id="job-titles" placeholder="Job titles (comma separated)">
+                    <textarea id="skills" placeholder="Skills (comma separated)" rows="2"></textarea>
+                    <button type="submit" class="btn btn-primary">Save Profile</button>
+                </form>
             </div>
-            <div class="visual-viewport">
-                <img id="live-view" src="/latest_view.png" alt="No Signal">
-                <div class="scanlines"></div>
-                <div class="corner-tl"></div>
-                <div class="corner-tr"></div>
-                <div class="corner-bl"></div>
-                <div class="corner-br"></div>
-            </div>
-            <div class="metric-card glass-panel mt-auto">
-                <label>Active Agent</label>
-                <div class="value text-sm" id="active-agent">Orchestrator</div>
+
+            <div class="panel">
+                <h3>Agent Activity</h3>
+                <div id="activity-log" class="activity-log">
+                    <div class="activity-item">Waiting for commands...</div>
+                </div>
             </div>
         </aside>
-
     </div>
 
-    <script src="/js/app.js"></script>
+    <script src="/static/js/app.js"></script>
 </body>
-
 </html>
