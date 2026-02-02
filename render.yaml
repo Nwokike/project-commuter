@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: project-commuter
+    env: python
+    # This command installs Python libs AND the necessary browsers
+    buildCommand: pip install -r requirements.txt && playwright install chromium
+    # This matches the new server entry point
+    startCommand: python server.py
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false  # You will enter this manually in the Render Dashboard
+      - key: PYTHON_VERSION
+        value: 3.10.12
