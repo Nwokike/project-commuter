@@ -7,6 +7,7 @@ import asyncio
 import base64
 from typing import Optional
 from playwright.async_api import async_playwright, Browser, Page, BrowserContext
+from playwright_stealth import stealth_async
 
 _browser: Optional[Browser] = None
 _context: Optional[BrowserContext] = None
@@ -45,9 +46,8 @@ async def get_page() -> Page:
     
     if _page is None or _page.is_closed():
         _page = await _context.new_page()
-        await _page.add_init_script("""
-            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-        """)
+        # Apply stealth settings to evade detection
+        await stealth_async(_page)
     
     return _page
 
