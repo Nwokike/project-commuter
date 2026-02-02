@@ -10,3 +10,4 @@ pydantic
 python-dotenv
 pypdf
 Pillow
+setuptools
