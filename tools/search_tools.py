@@ -3,7 +3,7 @@ Job Search and Web Research Tools using DuckDuckGo
 No API keys required - privacy-focused search
 """
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from typing import Optional
 
 

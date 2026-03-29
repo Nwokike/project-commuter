@@ -3,7 +3,7 @@ Vision Agent - Screen Analyst
 Analyzes screenshots for state detection (Login, CAPTCHA, Success).
 """
 
-from google.adk.agents import LlmAgent
+from google.adk.agents import Agent
 from models.groq_config import get_vision_model
 from tools.browser_tools import take_screenshot
 
@@ -23,7 +23,7 @@ The screenshots you receive will have **Green Bounding Boxes with Numbers** over
 Output your analysis clearly: "Page is a LinkedIn Job Listing. Login required." or "Page is the Easy Apply modal."
 """
 
-vision_agent = LlmAgent(
+vision_agent = Agent(
     model=get_vision_model(),
     name="vision_agent",
     description="Analyzes screenshots to detect Login pages, CAPTCHAs, or Application status.",

@@ -3,7 +3,7 @@ Scout Agent - LinkedIn Specialist
 STRICTLY confined to searching LinkedIn for jobs.
 """
 
-from google.adk.agents import LlmAgent
+from google.adk.agents import Agent
 from models.groq_config import get_research_model
 from tools.search_tools import search_jobs
 
@@ -29,7 +29,7 @@ Your ONLY purpose is to find job listings on LinkedIn using the `search_linkedin
 
 If the user asks for anything unrelated to LinkedIn jobs, politely decline."""
 
-scout_agent = LlmAgent(
+scout_agent = Agent(
     model=get_research_model(),
     name="scout_agent", 
     description="Searches for jobs strictly on LinkedIn.",

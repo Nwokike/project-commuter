@@ -3,7 +3,7 @@ Ops Agent - LinkedIn Easy Apply Sniper
 Uses Visual SOM (Set-of-Mark) to click buttons by ID.
 """
 
-from google.adk.agents import LlmAgent
+from google.adk.agents import Agent
 from models.groq_config import get_reasoning_model
 from tools.browser_tools import (
     navigate_to_url,
@@ -40,7 +40,7 @@ CV Summary: {user:experience_summary}
 
 Always confirm what you see before clicking: "I see the Easy Apply button at ID 14, clicking now..." """
 
-ops_agent = LlmAgent(
+ops_agent = Agent(
     model=get_reasoning_model(),
     name="ops_agent",
     description="Applies to jobs using Visual SOM (Clicking by ID numbers).",

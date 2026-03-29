@@ -3,6 +3,7 @@ Groq Model Configuration with Intelligent Fallback
 Optimized for rate limits and token budgets using the full model arsenal.
 """
 
+import os
 from google.adk.models.lite_llm import LiteLlm
 
 # Full definition of available models
@@ -21,7 +22,6 @@ MODEL_REGISTRY = {
     
     # Vision
     "llama-scout": "groq/meta-llama/llama-4-scout-17b-16e-instruct",
-    "llama-maverick": "groq/meta-llama/llama-4-maverick-17b-128e-instruct",
     
     # Research / Context Heavy
     "kimi-k2": "groq/moonshotai/kimi-k2-instruct",
@@ -46,7 +46,6 @@ GROQ_MODELS = {
     },
     "vision": {
         "primary": MODEL_REGISTRY["llama-scout"],
-        "fallback": MODEL_REGISTRY["llama-maverick"],
         "description": "Screenshot analysis and CAPTCHA detection"
     },
     "research": {
@@ -64,23 +63,49 @@ GROQ_MODELS = {
 
 def get_fast_model() -> LiteLlm:
     """Get the primary model for orchestration (Root Agent)."""
-    return LiteLlm(model=GROQ_MODELS["orchestrator"]["primary"])
-
+    return LiteLlm(
+        model=GROQ_MODELS["orchestrator"]["primary"],
+        api_key=os.getenv("GROQ_API_KEY"),
+        fallbacks=[
+            GROQ_MODELS["orchestrator"]["secondary"],
+            GROQ_MODELS["orchestrator"]["tertiary"],
+            GROQ_MODELS["orchestrator"]["fallback"]
+        ]
+    )
 
 def get_reasoning_model() -> LiteLlm:
     """Get the primary model for complex tasks (Ops Agent)."""
-    return LiteLlm(model=GROQ_MODELS["reasoning"]["primary"])
-
+    return LiteLlm(
+        model=GROQ_MODELS["reasoning"]["primary"],
+        api_key=os.getenv("GROQ_API_KEY"),
+        fallbacks=[
+            GROQ_MODELS["reasoning"]["secondary"],
+            GROQ_MODELS["reasoning"]["tertiary"],
+            GROQ_MODELS["reasoning"]["fallback"]
+        ]
+    )
 
 def get_vision_model() -> LiteLlm:
     """Get the primary vision model (Vision Agent)."""
-    return LiteLlm(model=GROQ_MODELS["vision"]["primary"])
-
+    return LiteLlm(
+        model=GROQ_MODELS["vision"]["primary"],
+        api_key=os.getenv("GROQ_API_KEY")
+    )
 
 def get_research_model() -> LiteLlm:
     """Get the primary research model (Scout Agent)."""
-    return LiteLlm(model=GROQ_MODELS["research"]["primary"])
+    return LiteLlm(
+        model=GROQ_MODELS["research"]["primary"],
+        api_key=os.getenv("GROQ_API_KEY"),
+        fallbacks=[
+            GROQ_MODELS["research"]["secondary"],
+            GROQ_MODELS["research"]["fallback"]
+        ]
+    )
 
 def get_parser_model() -> LiteLlm:
     """Get the fast model for CV parsing."""
-    return LiteLlm(model=GROQ_MODELS["parser"]["primary"])
+    return LiteLlm(
+        model=GROQ_MODELS["parser"]["primary"],
+        api_key=os.getenv("GROQ_API_KEY")
+    )

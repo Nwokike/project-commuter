@@ -1,0 +1,19 @@
+[project]
+name = "project-commuter"
+version = "1.0.0"
+description = "Linkedin Easy Apply Agent"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "google-adk",
+    "litellm",
+    "fastapi",
+    "uvicorn[standard]",
+    "websockets",
+    "ddgs",
+    "pydantic",
+    "python-dotenv",
+    "pypdf",
+    "Pillow",
+    "nodriver>=0.48.1",
+]

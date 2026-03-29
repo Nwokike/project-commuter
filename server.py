@@ -22,7 +22,7 @@ from google.genai import types
 import litellm 
 from pypdf import PdfReader
 
-from agents import root_agent
+from agents.root.agent import root_agent
 from models.groq_config import GROQ_MODELS
 from tools.browser_tools import (
     set_screenshot_callback,
