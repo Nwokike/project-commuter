@@ -27,7 +27,9 @@ async def get_browser() -> uc.Browser:
     global _browser
     if _browser is None or getattr(_browser, 'stopped', True):
         # Starts native Chrome on the machine. Automatically bypasses detection.
-        _browser = await uc.start()
+        # We use a custom user_data_dir to persistently store cookies/logins between runs.
+        profile_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "chrome_profile"))
+        _browser = await uc.start(user_data_dir=profile_path)
     return _browser
 
 
